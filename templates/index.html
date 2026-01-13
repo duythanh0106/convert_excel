@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel to DOCX Converter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .step {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .step h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #ccc;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: scale(1.02);
+        }
+        
+        .upload-area:hover::before {
+            left: 100%;
+        }
+        
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #e8f0ff;
+            border-style: solid;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+            transform: scale(1.05);
+        }
+        
+        .upload-area.dragover .upload-icon {
+            animation: bounce 0.5s ease infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 15px;
+            transition: transform 0.3s;
+        }
+        
+        select, button {
+            width: 100%;
+            padding: 12px 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        button:hover:not(:disabled)::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        button:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .columns-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        .column-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .column-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        
+        .column-item input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        
+        .column-item label {
+            cursor: pointer;
+            flex: 1;
+            font-size: 14px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .controls button {
+            flex: 1;
+            margin-top: 0;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            display: block;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            display: block;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Loading Spinner Enhanced */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(5px);
+        }
+        
+        .loading-overlay.active {
+            display: flex;
+        }
+        
+        .loading-content {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            min-width: 300px;
+        }
+        
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            font-size: 18px;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .loading-subtext {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        /* Progress Bar */
+        .progress-container {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 15px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 15px;
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .progress-bar.indeterminate {
+            width: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+            background-size: 200% 100%;
+            animation: progressIndeterminate 1.5s ease infinite;
+        }
+        
+        @keyframes progressIndeterminate {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 13px;
+            overflow-x: auto;
+            display: block;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .preview-table table {
+            width: 100%;
+            min-width: 600px;
+        }
+        
+        .preview-table th,
+        .preview-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .preview-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .preview-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .preview-table tr:hover {
+            background: #e9ecef;
+        }
+        
+        .row-number {
+            background: #e9ecef !important;
+            font-weight: 600;
+            text-align: center;
+            min-width: 50px;
+        }
+        
+        .file-info {
+            background: #e8f0ff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .info-box {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div class="loading-text" id="loadingText">Đang xử lý...</div>
+            <div class="loading-subtext" id="loadingSubtext">Vui lòng đợi</div>
+            <div class="progress-container hidden" id="progressContainer">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>📊 Excel to DOCX Converter</h1>
+            <p>Chuyển đổi danh sách từ Excel sang DOCX</p>
+        </div>
+
+        <!-- Step 1: Upload File -->
+        <div class="step" id="step1">
+            <h3>Bước 1: Chọn file Excel</h3>
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <p style="font-size: 16px; margin-bottom: 5px;"><strong>Click để chọn file</strong> hoặc kéo thả vào đây</p>
+                <p style="font-size: 14px; color: #999;">Hỗ trợ: .xlsx, .xls (Tối đa 50MB)</p>
+                <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+            </div>
+            <div id="fileInfo" class="file-info hidden"></div>
+        </div>
+
+        <!-- Step 2: Select Sheet -->
+        <div class="step hidden" id="step2">
+            <h3>Bước 2: Chọn Sheet</h3>
+            <select id="sheetSelect" onchange="loadPreview()">
+                <option value="">-- Chọn sheet --</option>
+            </select>
+        </div>
+
+        <!-- Step 3: Preview Data -->
+        <div class="step hidden" id="step3">
+            <h3>Bước 3: Xem trước dữ liệu</h3>
+            <div class="info-box">
+                📊 Hiển thị <strong id="previewRows">10</strong> dòng đầu tiên. 
+                Tổng: <strong id="totalRows">0</strong> dòng, <strong id="totalCols">0</strong> cột.
+            </div>
+            <div class="preview-table" id="previewTable"></div>
+            <button onclick="showHeaderConfig()" style="margin-top: 15px;">
+                ✓ Tiếp tục cấu hình
+            </button>
+        </div>
+
+        <!-- Step 4: Configure Header & Data Row -->
+        <div class="step hidden" id="step4">
+            <h3>Bước 4: Chọn dòng Header và Data</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Dòng chứa header</label>
+                    <input type="number" id="headerRowInput" value="2" min="1" 
+                           style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px;">
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">Dòng chứa tên cột</p>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Dòng bắt đầu data</label>
+                    <input type="number" id="dataStartInput" value="3" min="2"
+                           style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px;">
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">Dòng đầu tiên có data</p>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Dòng kết thúc data</label>
+                    <input type="number" id="dataEndInput" placeholder="Để trống = hết sheet" min="3"
+                           style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px;">
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">Để trống để lấy hết</p>
+                </div>
+            </div>
+            <button onclick="loadColumns()" style="margin-top: 15px;">
+                🔍 Phân tích cột
+            </button>
+        </div>
+
+        <!-- Step 5: Select Columns -->
+        <div class="step hidden" id="step5">
+            <h3>Bước 5: Chọn các cột cần xuất (<span id="selectedCount">0</span>/<span id="totalCount">0</span>)</h3>
+            <div class="controls">
+                <button onclick="selectAll()">✓ Chọn tất cả</button>
+                <button onclick="deselectAll()">✗ Bỏ chọn tất cả</button>
+            </div>
+            <div class="columns-grid" id="columnsGrid"></div>
+        </div>
+
+        <!-- Step 6: Convert -->
+        <div class="step hidden" id="step6">
+            <button id="convertBtn" onclick="convertFile()">
+                🔄 Chuyển đổi sang DOCX
+            </button>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="statusMsg" class="status"></div>
+
+        <!-- Download Button -->
+        <div class="step hidden" id="downloadSection">
+            <button id="downloadBtn" style="background: #28a745;">
+                ⬇️ Tải xuống file kết quả
+            </button>
+            <button onclick="reset()" style="background: #6c757d; margin-top: 10px;">
+                🔄 Chuyển đổi file khác
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let currentFilename = '';
+        let currentSheet = '';
+        let selectedColumns = [];
+        let headerRow = 2;
+        let dataStartRow = 3;
+        let dataEndRow = null;
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const sheetSelect = document.getElementById('sheetSelect');
+        const columnsGrid = document.getElementById('columnsGrid');
+        const statusMsg = document.getElementById('statusMsg');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        const loadingSubtext = document.getElementById('loadingSubtext');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+
+        // Loading functions
+        function showLoading(text, subtext, showProgress = false) {
+            loadingText.textContent = text;
+            loadingSubtext.textContent = subtext;
+            if (showProgress) {
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = '0%';
+                progressBar.classList.remove('indeterminate');
+            } else {
+                progressContainer.classList.add('hidden');
+            }
+            loadingOverlay.classList.add('active');
+        }
+
+        function updateProgress(percent, text = '') {
+            progressBar.style.width = percent + '%';
+            if (text) {
+                progressBar.textContent = text;
+            }
+        }
+
+        function showIndeterminateProgress() {
+            progressContainer.classList.remove('hidden');
+            progressBar.classList.add('indeterminate');
+            progressBar.textContent = '';
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.remove('active');
+            progressContainer.classList.add('hidden');
+            progressBar.classList.remove('indeterminate');
+        }
+
+        // Upload handlers
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        let dragCounter = 0;
+        
+        uploadArea.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter === 0) {
+                uploadArea.classList.remove('dragover');
+            }
+        });
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileUpload();
+            }
+        });
+
+        fileInput.addEventListener('change', handleFileUpload);
+
+        async function handleFileUpload() {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            // Check file size
+            const maxSize = 50 * 1024 * 1024; // 50MB
+            if (file.size > maxSize) {
+                showStatus(`File quá lớn: ${(file.size / 1024 / 1024).toFixed(1)}MB (tối đa 50MB)`, 'error');
+                return;
+            }
+
+            showLoading('Đang tải file lên...', `${file.name} (${(file.size / 1024).toFixed(1)} KB)`, true);
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                // Simulate progress for upload
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += 10;
+                    if (progress <= 90) {
+                        updateProgress(progress, `${progress}%`);
+                    }
+                }, 100);
+
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                clearInterval(progressInterval);
+                updateProgress(100, '100%');
+
+                const data = await response.json();
+                
+                setTimeout(() => {
+                    hideLoading();
+                    
+                    if (data.error) {
+                        showStatus('Lỗi: ' + data.error, 'error');
+                        return;
+                    }
+
+                    currentFilename = data.filename;
+                    fileInfo.textContent = `✓ ${file.name} (${data.file_size})`;
+                    fileInfo.classList.remove('hidden');
+
+                    sheetSelect.innerHTML = '<option value="">-- Chọn sheet --</option>';
+                    data.sheets.forEach(sheet => {
+                        const option = document.createElement('option');
+                        option.value = sheet;
+                        option.textContent = sheet;
+                        sheetSelect.appendChild(option);
+                    });
+
+                    document.getElementById('step2').classList.remove('hidden');
+                    document.getElementById('step2').scrollIntoView({ behavior: 'smooth' });
+                    showStatus('File đã tải lên thành công! Vui lòng chọn sheet.', 'success');
+                }, 500);
+            } catch (error) {
+                hideLoading();
+                showStatus('Lỗi khi tải file: ' + error.message, 'error');
+            }
+        }
+
+        
+        async function loadPreview() {
+            const selectedSheet = sheetSelect.value;
+            if (!selectedSheet) {
+                document.getElementById('step3').classList.add('hidden');
+                return;
+            }
+
+            currentSheet = selectedSheet;
+            showLoading('Đang tải preview...', 'Đọc dữ liệu từ sheet', false);
+            showIndeterminateProgress();
+
+            try {
+                const response = await fetch('/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        filename: currentFilename,
+                        sheet: selectedSheet,
+                        num_rows: 10
+                    })
+                });
+
+                const data = await response.json();
+                hideLoading();
+
+
+                if (!data || !Array.isArray(data.preview)) {
+                    throw new Error('Preview data không hợp lệ');
+                }
+
+
+                const rows = data.preview.map(row =>
+                    Array.isArray(row) ? row : []
+                );
+
+                const colCount = 
+                    Number.isInteger(data.total_cols) && data.total_cols > 0
+                        ? data.total_cols
+                        : rows.reduce((max, row) => Math.max(max, row.length || 0), 0);
+
+                if (colCount === 0) {
+                    document.getElementById('previewTable').innerHTML =
+                        '<p>Không tìm thấy cột dữ liệu.</p>';
+                    showStatus('Không tìm thấy cột dữ liệu.', 'info');
+                    return;
+                }
+
+
+                let html = '<table><thead><tr><th>Dòng</th>';
+                for (let i = 0; i < colCount; i++) {
+                    html += `<th>Cột ${i + 1}</th>`;
+                }
+                html += '</tr></thead><tbody>';
+
+                rows.forEach((row, rIdx) => {
+                    html += `<tr><td class="row-number">${rIdx + 1}</td>`;
+                    for (let c = 0; c < colCount; c++) {
+                        const cell = row[c];
+                        const text =
+                            cell === null || cell === undefined
+                                ? ''
+                                : String(cell);
+
+                        const display =
+                            text.length > 50
+                                ? text.slice(0, 50) + '...'
+                                : text;
+
+                        html += `<td>${display || '&nbsp;'}</td>`;
+                    }
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table>';
+                document.getElementById('previewTable').innerHTML = html;
+
+
+                document.getElementById('previewRows').textContent = rows.length;
+                document.getElementById('totalRows').textContent =
+                    Number.isInteger(data.total_rows)
+                        ? data.total_rows
+                        : rows.length;
+                document.getElementById('totalCols').textContent =
+                    Number.isInteger(data.total_cols)
+                        ? data.total_cols
+                        : colCount;
+
+                document.getElementById('step3').classList.remove('hidden');
+                document.getElementById('step3').scrollIntoView({ behavior: 'smooth' });
+
+                showStatus(`Đã tải preview sheet "${selectedSheet}"`, 'success');
+
+            } catch (err) {
+                hideLoading();
+                console.error(err);
+                showStatus('Lỗi khi tải preview: ' + err.message, 'error');
+            }
+        }
+
+        function showHeaderConfig() {
+            document.getElementById('step4').classList.remove('hidden');
+            document.getElementById('step4').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function loadColumns() {
+            headerRow = parseInt(document.getElementById('headerRowInput').value) || 2;
+            dataStartRow = parseInt(document.getElementById('dataStartInput').value) || 3;
+            const dataEndInput = document.getElementById('dataEndInput').value;
+            dataEndRow = dataEndInput ? parseInt(dataEndInput) : null;
+
+            if (headerRow < 1) {
+                showStatus('Dòng header phải >= 1', 'error');
+                return;
+            }
+
+            if (dataStartRow <= headerRow) {
+                showStatus('Dòng bắt đầu data phải lớn hơn dòng header', 'error');
+                return;
+            }
+
+            if (dataEndRow !== null && dataEndRow < dataStartRow) {
+                showStatus('Dòng kết thúc phải >= dòng bắt đầu', 'error');
+                return;
+            }
+
+            showLoading('Đang phân tích cột...', 'Đọc header từ Excel', false);
+
+            try {
+                const response = await fetch('/get-columns', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        filename: currentFilename,
+                        sheet: currentSheet,
+                        header_row: headerRow
+                    })
+                });
+
+                const data = await response.json();
+                
+                hideLoading();
+                
+                if (data.error) {
+                    showStatus('Lỗi: ' + data.error, 'error');
+                    return;
+                }
+
+                const columns = data.columns;
+                selectedColumns = [];
+
+                columnsGrid.innerHTML = '';
+                document.getElementById('totalCount').textContent = columns.length;
+                document.getElementById('selectedCount').textContent = '0';
+
+                columns.forEach((col, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'column-item';
+                    div.innerHTML = `
+                        <input type="checkbox" id="col${index}" onchange="updateColumnCount()">
+                        <label for="col${index}">${col}</label>
+                    `;
+                    div.querySelector('input').dataset.column = col;
+                    columnsGrid.appendChild(div);
+                });
+
+                document.getElementById('step5').classList.remove('hidden');
+                document.getElementById('step6').classList.remove('hidden');
+                document.getElementById('step5').scrollIntoView({ behavior: 'smooth' });
+                showStatus(`Tìm thấy ${columns.length} cột. Chọn cột cần xuất.`, 'success');
+            } catch (error) {
+                hideLoading();
+                showStatus('Lỗi khi đọc cột: ' + error.message, 'error');
+            }
+        }
+
+        function selectAll() {
+            columnsGrid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+            });
+            updateColumnCount();
+        }
+
+        function deselectAll() {
+            columnsGrid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+            updateColumnCount();
+        }
+
+        function updateColumnCount() {
+            selectedColumns = Array.from(columnsGrid.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(cb => cb.dataset.column);
+            document.getElementById('selectedCount').textContent = selectedColumns.length;
+        }
+
+        async function convertFile() {
+            if (!currentFilename || !currentSheet || selectedColumns.length === 0) {
+                showStatus('Vui lòng chọn sheet và ít nhất một cột!', 'error');
+                return;
+            }
+
+            const rangeText = dataEndRow ? `từ dòng ${dataStartRow} đến ${dataEndRow}` : `từ dòng ${dataStartRow} đến hết`;
+            showLoading('Đang chuyển đổi...', `${selectedColumns.length} cột, ${rangeText}`, true);
+
+            try {
+                // Simulate progress
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += 5;
+                    if (progress <= 90) {
+                        updateProgress(progress, `${progress}%`);
+                    }
+                }, 150);
+
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        filename: currentFilename,
+                        sheet: currentSheet,
+                        columns: selectedColumns,
+                        header_row: headerRow,
+                        data_start_row: dataStartRow,
+                        data_end_row: dataEndRow
+                    })
+                });
+
+                clearInterval(progressInterval);
+                updateProgress(100, '100%');
+
+                const data = await response.json();
+
+                setTimeout(() => {
+                    hideLoading();
+                    
+                    if (data.error) {
+                        showStatus('Lỗi: ' + data.error, 'error');
+                        return;
+                    }
+
+                    showStatus(`✓ ${data.message}`, 'success');
+                    
+                    const downloadBtn = document.getElementById('downloadBtn');
+                    downloadBtn.onclick = () => {
+                        window.location.href = `/download/${data.output_file}`;
+                    };
+
+                    document.getElementById('downloadSection').classList.remove('hidden');
+                    document.getElementById('downloadSection').scrollIntoView({ behavior: 'smooth' });
+                }, 500);
+            } catch (error) {
+                hideLoading();
+                showStatus('Lỗi khi chuyển đổi: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            statusMsg.textContent = message;
+            statusMsg.className = `status ${type}`;
+        }
+
+        function reset() {
+            location.reload();
+        }
+    </script>
+</body>
+</html>

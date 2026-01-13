@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  excel-converter:
+    build: .
+    container_name: excel-converter-app
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount volumes để giữ data khi restart container
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+    networks:
+      - excel-network
+
+networks:
+  excel-network:
+    driver: bridge

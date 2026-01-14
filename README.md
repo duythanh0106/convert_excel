@@ -58,11 +58,11 @@ pip install -r requirements.txt
 The project requires the following Python packages:
 
 ```txt
-Flask==2.3.0
-pandas==2.0.0
-python-docx==0.8.11
-openpyxl==3.1.2
-Werkzeug==2.3.0
+Flask==3.1.2
+pandas==2.3.3
+python-docx==1.1.0
+openpyxl==3.1.5
+Werkzeug==3.1.5
 ```
 
 Create a `requirements.txt` file with the above content, or install manually:

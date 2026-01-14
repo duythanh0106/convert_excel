@@ -37,42 +37,34 @@ def get_sheet_names(file_path: str) -> list[str]:
         raise ExcelProcessorError(f"Không thể đọc file Excel: {str(e)}")
 
 def preview_sheet_data(file_path: str, sheet_name: str, num_rows: int = 10) -> dict:
+    """
+    Preview = quét TOÀN BỘ sheet, lấy N dòng CÓ DỮ LIỆU đầu tiên.
+    KHÔNG dùng header_row, KHÔNG dùng data_start_row.
+    """
     validate_excel_file(file_path)
-    try:
-        wb = load_workbook(file_path, read_only=True, data_only=True)
-        if sheet_name not in wb.sheetnames:
-            raise ExcelProcessorError(f"Sheet '{sheet_name}' không tồn tại")
 
-        ws = wb[sheet_name]
-        max_row = ws.max_row or 0 # Xử lý trường hợp max_row là None
+    wb = load_workbook(file_path, read_only=True, data_only=True)
+    if sheet_name not in wb.sheetnames:
+        raise ExcelProcessorError(f"Sheet '{sheet_name}' không tồn tại")
 
-        preview = []
-        max_col = 0
-        
-        # Dùng iter_rows an toàn hơn trong chế độ read_only
-        row_count = 0
-        for row in ws.iter_rows(min_row=1):
-            values = ["" if c.value is None else str(c.value) for c in row]
-            # Chỉ lấy dòng có dữ liệu
-            if any(v.strip() != "" for v in values):
-                preview.append(values)
-                max_col = max(max_col, len(values))
-            
-            row_count += 1
-            if len(preview) >= num_rows or row_count > 1000: # Safety break
-                break
+    ws = wb[sheet_name]
+    max_row = ws.max_row or 0
 
-        wb.close()
+    preview = []
+    max_col = 0
 
-        return {
-            "preview": preview,
-            "total_rows": max_row,
-            "total_cols": max_col,
-        }
-    except Exception as e:
-        if isinstance(e, ExcelProcessorError):
-            raise e
-        raise ExcelProcessorError(f"Lỗi khi xem trước: {str(e)}")
+    for row in ws.iter_rows(min_row=1, max_row=max_row):
+        values = ["" if c.value is None else c.value for c in row]
+        preview.append(values)
+        max_col = max(max_col, len(values))
+
+    wb.close()
+
+    return {
+        "preview": preview,
+        "total_rows": max_row,
+        "total_cols": max_col,
+    }
 
 def get_column_headers(file_path: str, sheet_name: str, header_row: int) -> list[str]:
     """
@@ -148,63 +140,67 @@ def convert_excel_to_docx(
             excel_file_path,
             sheet_name=sheet_name,
             header=header_row - 1,
-            dtype=str # Force read as string to avoid formatting issues
+            dtype=str
         )
     except Exception as e:
-        raise ExcelProcessorError(f"Không thể đọc dữ liệu: {str(e)}")
+         raise ExcelProcessorError(f"Lỗi đọc dữ liệu Excel: {str(e)}")
 
-    # Clean column names
+    # Chuẩn hóa tên cột
     df.columns = (
         df.columns.astype(str)
         .str.replace("\n", " ")
         .str.replace("\t", " ")
         .str.strip()
     )
-
-    # Validate columns
+    
+    # Kiểm tra cột
     missing = [c for c in selected_columns if c not in df.columns]
     if missing:
-        raise ExcelProcessorError(f"Không tìm thấy cột trong file gốc: {', '.join(missing)}")
+        raise ExcelProcessorError(f"Không tìm thấy các cột sau: {', '.join(missing)}")
 
-    # Slice data rows
     start_idx = data_start_row - header_row - 1
     end_idx = None
     if data_end_row:
         end_idx = data_end_row - header_row
 
-    # Kiểm tra bounds
     if start_idx < 0: start_idx = 0
-    
+
     df_subset = df.iloc[start_idx:end_idx].copy()
     
     df_final = df_subset[selected_columns].reset_index(drop=True)
+    
+    df_final = df_final.fillna("")
+
+    df_final = df_final.replace(r'^\s*$', pd.NA, regex=True).ffill()
+    
     df_final = df_final.fillna("")
 
     if df_final.empty:
-        raise ExcelProcessorError("Không có dữ liệu hợp lệ để xuất")
-    
-    # Generate DOCX
+        raise ExcelProcessorError("Không có dữ liệu nào trong khoảng dòng đã chọn")
+
     try:
         doc = Document()
         style = doc.styles["Normal"]
         style.font.name = "Arial"
         style.font.size = Pt(11)
 
+        total_rows = len(df_final)
         for i, row in df_final.iterrows():
             p = doc.add_paragraph()
             for col in selected_columns:
-                val = str(row[col])
-                # Bold tên cột
-                runner = p.add_run(f"{col}: ")
-                runner.bold = True
+                val = str(row[col]).strip()
+                
+                run_header = p.add_run(f"{col}: ")
+                run_header.bold = True
                 p.add_run(f"{val}\n")
             
-            if i < len(df_final) - 1:
+            if i < total_rows - 1:
                 doc.add_paragraph("-" * 50)
 
         os.makedirs(os.path.dirname(output_docx_path), exist_ok=True)
         doc.save(output_docx_path)
 
-        return len(df_final)
+        return total_rows
+
     except Exception as e:
-        raise ExcelProcessorError(f"Lỗi khi tạo file Word: {str(e)}")
+        raise ExcelProcessorError(f"Lỗi khi ghi file DOCX: {str(e)}")

@@ -1,6 +1,3 @@
-# File: excel_processor.py
-# Module xử lý Excel và chuyển đổi sang DOCX
-
 import os
 import pandas as pd
 from docx import Document

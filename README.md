@@ -39,7 +39,7 @@ Built with **FastAPI** for blazing-fast performance and **Docker** for seamless 
 
 ### Core Functionality
 
-- **Excel Upload**: Support for `.xlsx` and `.xls` files up to 50MB
+- **Excel Upload**: Support for `.xlsx` files up to 50MB
 - **Multi-Sheet Support**: Work with any sheet in your workbook
 - **Live Preview**: View your data before conversion with customizable row limits
 - **Smart Column Selection**: 
@@ -310,7 +310,7 @@ UPLOAD_FOLDER=uploads
 OUTPUT_FOLDER=outputs
 
 # File Settings
-ALLOWED_EXTENSIONS=.xlsx,.xls
+ALLOWED_EXTENSIONS=.xlsx
 
 # Server
 TZ=Asia/Ho_Chi_Minh            # Timezone
@@ -337,7 +337,7 @@ environment:
 | `CLEANUP_HOURS` | `24` | File retention period |
 | `UPLOAD_FOLDER` | `uploads` | Upload directory |
 | `OUTPUT_FOLDER` | `outputs` | Output directory |
-| `ALLOWED_EXTENSIONS` | `.xlsx,.xls` | Allowed file types |
+| `ALLOWED_EXTENSIONS` | `.xlsx' | Allowed file types |
 | `TZ` | `Asia/Ho_Chi_Minh` | Timezone |
 
 ---

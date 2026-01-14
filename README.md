@@ -22,7 +22,7 @@
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - pip package manager
 - Virtual environment (recommended)
 

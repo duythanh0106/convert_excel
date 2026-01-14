@@ -39,10 +39,8 @@ app.add_middleware(
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Configuration from environment
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
 OUTPUT_FOLDER = os.getenv('OUTPUT_FOLDER', 'outputs')
 MAX_FILE_SIZE = int(os.getenv('MAX_FILE_SIZE', 50 * 1024 * 1024))
@@ -436,7 +434,7 @@ async def download(filename: str):
 @app.get('/health', tags=["System"])
 async def health_check():
     """
-    ❤️ Health check endpoint
+    Health check endpoint
     """
     return {
         'status': 'healthy',
@@ -448,7 +446,7 @@ async def health_check():
 @app.get('/info', tags=["System"])
 async def info():
     """
-    ℹ️ Thông tin hệ thống
+    ℹThông tin hệ thống
     """
     return {
         'app_name': 'Excel to DOCX Converter',
@@ -482,7 +480,7 @@ async def startup_event():
     print(f"   → http://localhost:8080/redoc (ReDoc)")
     print("\n" + "="*70 + "\n")
     
-    print("🧹 Đang dọn dẹp files cũ...")
+    print("Đang dọn dẹp files cũ...")
     cleanup_old_files(UPLOAD_FOLDER, max_age_hours=24)
     cleanup_old_files(OUTPUT_FOLDER, max_age_hours=24)
     
@@ -493,4 +491,4 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Chạy khi app tắt"""
-    print("\n👋 Shutting down Excel to DOCX Converter...\n")
+    print("\nShutting down Excel to DOCX Converter...\n")

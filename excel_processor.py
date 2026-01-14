@@ -4,11 +4,8 @@ from docx import Document
 from docx.shared import Pt
 from openpyxl import load_workbook
 
-
 class ExcelProcessorError(Exception):
     pass
-
-
 
 def validate_file_exists(file_path: str) -> None:
     if not os.path.exists(file_path):
@@ -16,90 +13,118 @@ def validate_file_exists(file_path: str) -> None:
     if not os.path.isfile(file_path):
         raise ExcelProcessorError(f"Đường dẫn không phải file: {file_path}")
 
-
 def validate_excel_file(file_path: str) -> None:
     validate_file_exists(file_path)
-
     ext = os.path.splitext(file_path)[1].lower()
+    
+    if ext == '.xls':
+         raise ExcelProcessorError("Hệ thống hiện tại chỉ hỗ trợ file .xlsx (OpenXML). Vui lòng lưu file sang định dạng .xlsx và thử lại.")
+         
     if ext not in (".xlsx", ".xls"):
         raise ExcelProcessorError(f"File không phải Excel: {ext}")
 
     if os.path.getsize(file_path) > 50 * 1024 * 1024:
         raise ExcelProcessorError("File quá lớn (tối đa 50MB)")
 
-
-
 def get_sheet_names(file_path: str) -> list[str]:
     validate_excel_file(file_path)
-    wb = load_workbook(file_path, read_only=True, data_only=True)
-    names = wb.sheetnames
-    wb.close()
-    return names
-
+    try:
+        wb = load_workbook(file_path, read_only=True, data_only=True)
+        names = wb.sheetnames
+        wb.close()
+        return names
+    except Exception as e:
+        raise ExcelProcessorError(f"Không thể đọc file Excel: {str(e)}")
 
 def preview_sheet_data(file_path: str, sheet_name: str, num_rows: int = 10) -> dict:
-    """
-    Preview = quét TOÀN BỘ sheet, lấy N dòng CÓ DỮ LIỆU đầu tiên.
-    KHÔNG dùng header_row, KHÔNG dùng data_start_row.
-    """
     validate_excel_file(file_path)
+    try:
+        wb = load_workbook(file_path, read_only=True, data_only=True)
+        if sheet_name not in wb.sheetnames:
+            raise ExcelProcessorError(f"Sheet '{sheet_name}' không tồn tại")
 
-    wb = load_workbook(file_path, read_only=True, data_only=True)
-    if sheet_name not in wb.sheetnames:
-        raise ExcelProcessorError(f"Sheet '{sheet_name}' không tồn tại")
+        ws = wb[sheet_name]
+        max_row = ws.max_row or 0 # Xử lý trường hợp max_row là None
 
-    ws = wb[sheet_name]
-    max_row = ws.max_row or 0
+        preview = []
+        max_col = 0
+        
+        # Dùng iter_rows an toàn hơn trong chế độ read_only
+        row_count = 0
+        for row in ws.iter_rows(min_row=1):
+            values = ["" if c.value is None else str(c.value) for c in row]
+            # Chỉ lấy dòng có dữ liệu
+            if any(v.strip() != "" for v in values):
+                preview.append(values)
+                max_col = max(max_col, len(values))
+            
+            row_count += 1
+            if len(preview) >= num_rows or row_count > 1000: # Safety break
+                break
 
-    preview = []
-    max_col = 0
+        wb.close()
 
-    for row in ws.iter_rows(min_row=1, max_row=max_row):
-        values = ["" if c.value is None else c.value for c in row]
-        if any(v not in ("", None) for v in values):
-            preview.append(values)
-            max_col = max(max_col, len(values))
-        if len(preview) >= num_rows:
-            break
-
-    wb.close()
-
-    return {
-        "preview": preview,
-        "total_rows": max_row,
-        "total_cols": max_col,
-    }
-
-
+        return {
+            "preview": preview,
+            "total_rows": max_row,
+            "total_cols": max_col,
+        }
+    except Exception as e:
+        if isinstance(e, ExcelProcessorError):
+            raise e
+        raise ExcelProcessorError(f"Lỗi khi xem trước: {str(e)}")
 
 def get_column_headers(file_path: str, sheet_name: str, header_row: int) -> list[str]:
+    """
+    SỬA LỖI QUAN TRỌNG:
+    Dùng iter_rows thay vì truy cập trực tiếp index để tránh lỗi với openpyxl read_only
+    """
     validate_excel_file(file_path)
 
-    wb = load_workbook(file_path, read_only=True, data_only=True)
-    if sheet_name not in wb.sheetnames:
-        raise ExcelProcessorError(f"Sheet '{sheet_name}' không tồn tại")
+    try:
+        wb = load_workbook(file_path, read_only=True, data_only=True)
+        if sheet_name not in wb.sheetnames:
+            raise ExcelProcessorError(f"Sheet '{sheet_name}' không tồn tại")
 
-    ws = wb[sheet_name]
-    max_row = ws.max_row or 0
+        ws = wb[sheet_name]
+        
+        if ws.max_row and header_row > ws.max_row:
+             wb.close()
+             raise ExcelProcessorError(f"Dòng header ({header_row}) lớn hơn tổng số dòng ({ws.max_row})")
 
-    if header_row < 1 or header_row > max_row:
+        headers = []
+        found_row = False
+        
+        row_generator = ws.iter_rows(min_row=header_row, max_row=header_row)
+        
+        try:
+            row_cells = next(row_generator)
+            found_row = True
+            
+            for cell in row_cells:
+                if len(headers) > 100 and cell.value is None: 
+                    continue 
+
+                if cell.value is None or str(cell.value).strip() == "":
+                    headers.append(f"Cột {cell.column}")
+                else:
+                    headers.append(
+                        str(cell.value).replace("\n", " ").replace("\t", " ").strip()
+                    )
+        except StopIteration:
+            pass
+
         wb.close()
-        raise ExcelProcessorError(
-            f"Dòng header không hợp lệ: {header_row} (1 → {max_row})"
-        )
+        
+        if not found_row or not headers:
+             return []
 
-    headers = []
-    for cell in ws[header_row]:
-        if cell.value is None or str(cell.value).strip() == "":
-            headers.append(f"Cột {cell.column}")
-        else:
-            headers.append(
-                str(cell.value).replace("\n", " ").replace("\t", " ").strip()
-            )
+        return headers
 
-    wb.close()
-    return headers
-
+    except Exception as e:
+        if isinstance(e, ExcelProcessorError):
+            raise e
+        raise ExcelProcessorError(f"Lỗi khi đọc cột: {str(e)}")
 
 def convert_excel_to_docx(
     excel_file_path: str,
@@ -110,10 +135,6 @@ def convert_excel_to_docx(
     data_start_row: int,
     data_end_row: int | None = None,
 ) -> int:
-    """
-    data_start_row = quyết định của USER
-    → backend phải đọc TOÀN BỘ, rồi cắt đúng dòng
-    """
     validate_excel_file(excel_file_path)
 
     if not selected_columns:
@@ -122,22 +143,17 @@ def convert_excel_to_docx(
     if data_start_row <= header_row:
         raise ExcelProcessorError("Dòng data phải > dòng header")
 
-    wb = load_workbook(excel_file_path, data_only=True)
-    if sheet_name not in wb.sheetnames:
-        raise ExcelProcessorError(f"Sheet '{sheet_name}' không tồn tại")
+    try:
+        df = pd.read_excel(
+            excel_file_path,
+            sheet_name=sheet_name,
+            header=header_row - 1,
+            dtype=str # Force read as string to avoid formatting issues
+        )
+    except Exception as e:
+        raise ExcelProcessorError(f"Không thể đọc dữ liệu: {str(e)}")
 
-    ws = wb[sheet_name]
-    max_row = ws.max_row or 0
-
-    if data_start_row > max_row:
-        raise ExcelProcessorError("Dòng bắt đầu data vượt quá sheet")
-
-    df = pd.read_excel(
-        excel_file_path,
-        sheet_name=sheet_name,
-        header=header_row - 1,
-    )
-
+    # Clean column names
     df.columns = (
         df.columns.astype(str)
         .str.replace("\n", " ")
@@ -145,53 +161,50 @@ def convert_excel_to_docx(
         .str.strip()
     )
 
+    # Validate columns
     missing = [c for c in selected_columns if c not in df.columns]
     if missing:
-        raise ExcelProcessorError(f"Không tìm thấy cột: {', '.join(missing)}")
+        raise ExcelProcessorError(f"Không tìm thấy cột trong file gốc: {', '.join(missing)}")
 
+    # Slice data rows
     start_idx = data_start_row - header_row - 1
     end_idx = None
     if data_end_row:
         end_idx = data_end_row - header_row
 
-    df = df.iloc[start_idx:end_idx][selected_columns].reset_index(drop=True)
+    # Kiểm tra bounds
+    if start_idx < 0: start_idx = 0
+    
+    df_subset = df.iloc[start_idx:end_idx].copy()
+    
+    df_final = df_subset[selected_columns].reset_index(drop=True)
+    df_final = df_final.fillna("")
 
-    if df.empty:
+    if df_final.empty:
         raise ExcelProcessorError("Không có dữ liệu hợp lệ để xuất")
+    
+    # Generate DOCX
+    try:
+        doc = Document()
+        style = doc.styles["Normal"]
+        style.font.name = "Arial"
+        style.font.size = Pt(11)
 
-    # merge cells
-    merged_values = {}
-    for r in ws.merged_cells.ranges:
-        v = ws.cell(r.min_row, r.min_col).value
-        for row in range(r.min_row, r.max_row + 1):
-            for col in range(r.min_col, r.max_col + 1):
-                merged_values[(row, col)] = v
+        for i, row in df_final.iterrows():
+            p = doc.add_paragraph()
+            for col in selected_columns:
+                val = str(row[col])
+                # Bold tên cột
+                runner = p.add_run(f"{col}: ")
+                runner.bold = True
+                p.add_run(f"{val}\n")
+            
+            if i < len(df_final) - 1:
+                doc.add_paragraph("-" * 50)
 
-    for i, row in df.iterrows():
-        excel_row = data_start_row + i
-        for j, col in enumerate(df.columns):
-            if pd.isna(row[col]):
-                for idx, cell in enumerate(ws[header_row], 1):
-                    if str(cell.value).strip() == col:
-                        df.iat[i, j] = merged_values.get((excel_row, idx))
-                        break
+        os.makedirs(os.path.dirname(output_docx_path), exist_ok=True)
+        doc.save(output_docx_path)
 
-    wb.close()
-
-    # DOCX
-    doc = Document()
-    style = doc.styles["Normal"]
-    style.font.name = "Arial"
-    style.font.size = Pt(11)
-
-    for i, row in df.iterrows():
-        for col in df.columns:
-            val = row[col]
-            doc.add_paragraph(f"{col}: {val if pd.notna(val) else 'N/A'}")
-        if i < len(df) - 1:
-            doc.add_paragraph("-" * 80)
-
-    os.makedirs(os.path.dirname(output_docx_path), exist_ok=True)
-    doc.save(output_docx_path)
-
-    return len(df)
+        return len(df_final)
+    except Exception as e:
+        raise ExcelProcessorError(f"Lỗi khi tạo file Word: {str(e)}")

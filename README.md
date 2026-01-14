@@ -1,20 +1,123 @@
 # Excel to DOCX Converter
+A powerful, production-ready web application that converts Excel spreadsheets to formatted Word documents with intelligent column selection and data range configuration.
 
-> A modern, browser-based tool for converting Excel spreadsheets into formatted Word documents with intelligent column selection and data range configuration.
+---
+
+## 📋 Table of Contents
+
+- [Introduction](#-introduction)
+- [Key Features](#-key-features)
+- [Overall Architecture](#-overall-architecture)
+- [Installation](#-installation)
+- [Running the Project](#-running-the-project)
+- [Environment Configuration](#-environment-configuration)
+- [Folder Structure](#-folder-structure)
+- [API Documentation](#-api-documentation)
+- [Contribution Guidelines](#-contribution-guidelines)
+- [License](#-license)
+- [Roadmap](#-roadmap)
 
 ---
 
-## Introduction
+## 🌟 Introduction
 
-**Excel to DOCX Converter** is a lightweight, production-ready web application that transforms Excel data into professionally formatted Word documents. Built with Flask and modern web technologies, it provides an intuitive interface for selecting specific columns, defining data ranges, and generating custom reports from spreadsheet data.
+**Excel to DOCX Converter** is a web-based solution designed to streamline the process of converting Excel data into professionally formatted Word documents. Whether you're working with employee lists, inventory data, or any tabular information, this tool provides an intuitive interface to select specific columns, define data ranges, and generate clean DOCX files.
+
+Built with **FastAPI** for blazing-fast performance and **Docker** for seamless deployment, this application is perfect for businesses, data analysts, and anyone who needs to transform spreadsheet data into document format regularly.
+
+### Why This Tool?
+
+- **No Manual Copy-Paste**: Automate the tedious process of transferring Excel data to Word
+- **Selective Export**: Choose exactly which columns you need
+- **Flexible Data Ranges**: Define custom header rows and data boundaries
+- **Batch Processing**: Handle large datasets efficiently
+- **Self-Hosted**: Keep your sensitive data secure on your own infrastructure
 
 ---
-## Technical Features
 
-- **Automatic Cleanup**: Removes files older than 24 hours
-- **Secure Processing**: Filename sanitization and validation
-- **Error Handling**: Comprehensive error messages
-- **Format Support**: `.xlsx` and `.xls` files
+## ✨ Key Features
+
+### Core Functionality
+
+- **Excel Upload**: Support for `.xlsx` and `.xls` files up to 50MB
+- **Multi-Sheet Support**: Work with any sheet in your workbook
+- **Live Preview**: View your data before conversion with customizable row limits
+- **Smart Column Selection**: 
+  - Select/deselect individual columns
+  - Bulk select/deselect all columns
+  - Visual column counter
+- **Flexible Configuration**:
+  - Custom header row selection
+  - Configurable data start row
+  - Optional data end row (or process entire sheet)
+- **Merged Cell Handling**: Intelligent processing of merged Excel cells
+- **Formatted DOCX Output**: Clean, readable Word documents with proper formatting
+
+### Technical Excellence
+
+- **High Performance**: Built on FastAPI for asynchronous processing
+- **Docker Ready**: One-command deployment with Docker Compose
+- **Auto Cleanup**: Scheduled cleanup of old files to save disk space
+- **API Documentation**: Interactive Swagger UI and ReDoc documentation
+- **Health Checks**: Built-in health monitoring endpoints
+- **Security**: Input validation and file type restrictions
+
+---
+
+## Overall Architecture
+
+### Request Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant A as API
+    participant P as Processor
+    participant S as Storage
+
+    U->>F: Upload Excel File
+    F->>A: POST /upload
+    A->>S: Save File
+    A->>P: Get Sheet Names
+    P->>S: Read Excel
+    P-->>A: Return Sheets
+    A-->>F: {filename, sheets}
+    
+    U->>F: Select Sheet
+    F->>A: POST /preview
+    A->>P: Preview Data
+    P->>S: Read Excel
+    P-->>A: Preview Data
+    A-->>F: {preview, total_rows}
+    
+    U->>F: Configure & Convert
+    F->>A: POST /convert
+    A->>P: Convert to DOCX
+    P->>S: Read Excel
+    P->>S: Write DOCX
+    P-->>A: Success
+    A-->>F: {output_file}
+    
+    U->>F: Download
+    F->>A: GET /download/{file}
+    A->>S: Retrieve DOCX
+    A-->>F: File Stream
+    F-->>U: Download File
+```
+
+### Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Backend Framework** | FastAPI 0.109.0 | High-performance async API |
+| **Server** | Uvicorn | ASGI web server |
+| **Data Processing** | Pandas 2.3.3 | DataFrame operations |
+| **Excel Reading** | OpenPyXL 3.1.5 | Excel file parsing |
+| **Word Generation** | Python-DOCX 1.1.0 | DOCX file creation |
+| **Frontend** | HTML5/CSS3/Vanilla JS | Interactive UI |
+| **Containerization** | Docker & Docker Compose | Deployment |
+| **Web Server** | Nginx (optional) | Reverse proxy |
 
 ---
 
@@ -22,166 +125,220 @@
 
 ### Prerequisites
 
-- Python 3.10 or higher
-- pip package manager
-- Virtual environment (recommended)
+Before you begin, ensure you have the following installed:
 
-### Quick Start
+- **Python 3.9+** ([Download](https://www.python.org/downloads/))
+- **pip** (comes with Python)
+- **Docker** (optional, for containerized deployment) ([Download](https://www.docker.com/get-started))
+- **Docker Compose** (optional, included with Docker Desktop)
 
-1. **Clone the repository**
+### Option 1: Local Installation
+
+#### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/yourusername/excel-to-docx-converter.git
 cd excel-to-docx-converter
 ```
 
-2. **Create virtual environment**
+#### 2. Create Virtual Environment
 
 ```bash
-# Windows
+# On Windows
 python -m venv venv
 venv\Scripts\activate
 
-# macOS/Linux
+# On macOS/Linux
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-3. **Install dependencies**
+#### 3. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Dependencies
-
-The project requires the following Python packages:
-
-```txt
-Flask==3.1.2
-pandas==2.3.3
-python-docx==1.1.0
-openpyxl==3.1.5
-Werkzeug==3.1.5
-```
-
-Create a `requirements.txt` file with the above content, or install manually:
+#### 4. Create Required Directories
 
 ```bash
-pip install Flask pandas python-docx openpyxl Werkzeug
+# On Windows
+mkdir uploads outputs templates
+
+# On macOS/Linux
+mkdir -p uploads outputs templates
 ```
+
+#### 5. Move HTML Template
+
+```bash
+# Ensure index.html is in the templates folder
+# The file should be at: templates/index.html
+```
+
+### Option 2: Docker Installation
+
+#### 1. Clone the Repository
+
+```bash
+git clone https://github.com/yourusername/excel-to-docx-converter.git
+cd excel-to-docx-converter
+```
+
+#### 2. Build and Run with Docker Compose
+
+```bash
+# Build and start the container
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop the container
+docker-compose down
+```
+
+The application will be available at `http://localhost:8080`
 
 ---
 
-## Running the Project
+## 🎮 Running the Project
 
-### Development Mode
+### Local Development
+
+#### Start the Server
 
 ```bash
-python app.py
+# Make sure virtual environment is activated
+uvicorn main:app --reload --host 0.0.0.0 --port 8080
 ```
 
-The server will start on `http://0.0.0.0:5000` with the following access points:
+**Parameters:**
+- `--reload`: Auto-restart on code changes (development only)
+- `--host 0.0.0.0`: Listen on all network interfaces
+- `--port 8080`: Port number
 
-**Local Access:**
-```
-http://localhost:5000
-```
+#### Access the Application
 
-**Network Access:**
-```
-http://[YOUR_LOCAL_IP]:5000
-```
+- **Web UI**: http://localhost:8080
+- **API Docs (Swagger)**: http://localhost:8080/docs
+- **API Docs (ReDoc)**: http://localhost:8080/redoc
+- **Health Check**: http://localhost:8080/health
 
-The application will automatically detect and display your local IP address on startup:
+#### Access from Other Devices
+
+The application will display the local network IP on startup:
 
 ```
-TRUY CẬP TỪ MÁY NÀY:
-   → http://localhost:5000
-
 TRUY CẬP TỪ MÁY KHÁC CÙNG MẠNG:
-   → http://192.168.1.100:5000
+   → http://192.168.1.100:8080
 ```
 
 ### Production Deployment
 
-For production environments, use a WSGI server like Gunicorn:
+#### Using Docker Compose
 
 ```bash
-# Install Gunicorn
-pip install gunicorn
+# Start in detached mode
+docker-compose up -d
 
-# Run with Gunicorn
-gunicorn -w 4 -b 0.0.0.0:5000 app:app
+# Scale if needed (not recommended for this app)
+docker-compose up -d --scale excel-converter=1
+
+# Update after code changes
+docker-compose build
+docker-compose up -d
 ```
 
-Or with Docker:
+#### With Nginx Reverse Proxy
 
-```dockerfile
-FROM python:3.9-slim
+```bash
+# Start with nginx profile
+docker-compose --profile with-nginx up -d
+```
 
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+This will:
+- Run the app on port 8080
+- Run Nginx on ports 80/443
+- Configure SSL (if certificates are provided)
 
-COPY . .
+#### System Service (Linux)
 
-EXPOSE 5000
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
+Create `/etc/systemd/system/excel-converter.service`:
+
+```ini
+[Unit]
+Description=Excel to DOCX Converter
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/excel-converter
+Environment="PATH=/opt/excel-converter/venv/bin"
+ExecStart=/opt/excel-converter/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8080
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```bash
+sudo systemctl enable excel-converter
+sudo systemctl start excel-converter
+sudo systemctl status excel-converter
 ```
 
 ---
 
 ## Environment Configuration
 
-### Application Settings
+### Environment Variables
 
-The application can be configured by modifying these constants in `app.py`:
+Create a `.env` file in the project root:
 
-```python
-# File upload settings
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['OUTPUT_FOLDER'] = 'outputs'
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
-app.config['ALLOWED_EXTENSIONS'] = {'xlsx', 'xls'}
-```
+```bash
+# Application Settings
+FASTAPI_ENV=production          # development | production
+MAX_FILE_SIZE=52428800          # 50MB in bytes
+CLEANUP_HOURS=24                # Auto-delete files older than X hours
 
-### Storage Configuration
-
-```python
-# Cleanup settings (in hours)
-CLEANUP_INTERVAL = 24  # Clean files older than 24 hours
-CLEANUP_CHECK_FREQUENCY = 3600  # Check every hour (in seconds)
-```
-
-### Network Configuration
-
-```python
-# Server settings
-HOST = '0.0.0.0'  # Listen on all interfaces
-PORT = 5000
-DEBUG = False  # Set to True for development only
-THREADED = True  # Enable multi-threading
-```
-
-### Environment Variables (Optional)
-
-Create a `.env` file for environment-specific settings:
-
-```env
-FLASK_ENV=production
-SECRET_KEY=your-secret-key-here
-MAX_FILE_SIZE=52428800
+# Folders
 UPLOAD_FOLDER=uploads
 OUTPUT_FOLDER=outputs
+
+# File Settings
+ALLOWED_EXTENSIONS=.xlsx,.xls
+
+# Server
+TZ=Asia/Ho_Chi_Minh            # Timezone
 ```
 
-Load with `python-dotenv`:
+### Docker Environment Variables
 
-```python
-from dotenv import load_dotenv
-load_dotenv()
+In `docker-compose.yml`:
+
+```yaml
+environment:
+  - FASTAPI_ENV=production
+  - MAX_FILE_SIZE=52428800
+  - CLEANUP_HOURS=24
+  - TZ=Asia/Ho_Chi_Minh
 ```
+
+### Configuration Options
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FASTAPI_ENV` | `production` | Environment mode |
+| `MAX_FILE_SIZE` | `52428800` | Max upload size (bytes) |
+| `CLEANUP_HOURS` | `24` | File retention period |
+| `UPLOAD_FOLDER` | `uploads` | Upload directory |
+| `OUTPUT_FOLDER` | `outputs` | Output directory |
+| `ALLOWED_EXTENSIONS` | `.xlsx,.xls` | Allowed file types |
+| `TZ` | `Asia/Ho_Chi_Minh` | Timezone |
 
 ---
 
@@ -189,61 +346,68 @@ load_dotenv()
 
 ```
 excel-to-docx-converter/
-├── app.py                  # Main Flask application
-├── excel_processor.py      # Excel processing logic
-├── requirements.txt        # Python dependencies
-├── README.md              # This file
 │
-├── templates/
-│   └── index.html         # Main UI template
+├── 📄 main.py                    # FastAPI application & routes
+├── 📄 excel_processor.py         # Core business logic
+├── 📄 requirements.txt           # Python dependencies
+├── 📄 Dockerfile                 # Docker image configuration
+├── 📄 docker-compose.yml         # Docker Compose orchestration
+├── 📄 .dockerignore              # Docker build exclusions
+├── 📄 .gitignore                 # Git exclusions
+├── 📄 .env                       # Environment variables (create this)
+├── 📄 README.md                  # This file
 │
-├── uploads/               # Temporary Excel file storage (auto-created)
+├── 📁 templates/                 # Frontend templates
+│   └── 📄 index.html             # Main web interface
+│
+├── 📁 uploads/                   # Uploaded Excel files (auto-created)
 │   └── .gitkeep
 │
-├── outputs/               # Generated DOCX files (auto-created)
+├── 📁 outputs/                   # Generated DOCX files (auto-created)
 │   └── .gitkeep
 │
-└── static/                # Static assets (optional)
-    ├── css/
-    ├── js/
-    └── images/
+├── 📁 nginx/                     # Nginx configuration (optional)
+│   ├── 📄 nginx.conf
+│   └── 📁 ssl/
 ```
 
----
+##  API Documentation
 
-## API Reference
+### Interactive Documentation
 
-### Endpoints
+Once the server is running, access the interactive API documentation:
 
-#### `POST /upload`
-Upload an Excel file and retrieve sheet names.
+- **Swagger UI**: http://localhost:8080/docs
+- **ReDoc**: http://localhost:8080/redoc
 
-**Request:**
+### Core Endpoints
+
+#### 1. Upload File
+
 ```http
 POST /upload
 Content-Type: multipart/form-data
 
-file: [Excel file]
+file: <Excel file>
 ```
 
 **Response:**
 ```json
 {
-  "filename": "example_20240114_153045.xlsx",
-  "sheets": ["Sheet1", "Data", "Summary"],
-  "file_size": "245.6 KB"
+  "filename": "data_20240114_153045.xlsx",
+  "sheets": ["Sheet1", "Sheet2"],
+  "file_size": "245.3 KB"
 }
 ```
 
----
+#### 2. Preview Sheet
 
-#### `POST /preview`
-Preview data from a selected sheet.
+```http
+POST /preview
+Content-Type: application/json
 
-**Request:**
-```json
 {
-  "filename": "example_20240114_153045.xlsx",
+  "filename": "data_20240114_153045.xlsx",
   "sheet": "Sheet1",
   "num_rows": 10
 }
@@ -253,23 +417,22 @@ Preview data from a selected sheet.
 ```json
 {
   "preview": [
-    ["Header1", "Header2", "Header3"],
-    ["Value1", "Value2", "Value3"]
+    ["Name", "Email", "Phone"],
+    ["John Doe", "john@example.com", "123-456"]
   ],
   "total_rows": 150,
-  "total_cols": 10
+  "total_cols": 3
 }
 ```
 
----
+#### 3. Get Columns
 
-#### `POST /get-columns`
-Retrieve column headers from a specific row.
+```http
+POST /get-columns
+Content-Type: application/json
 
-**Request:**
-```json
 {
-  "filename": "example_20240114_153045.xlsx",
+  "filename": "data_20240114_153045.xlsx",
   "sheet": "Sheet1",
   "header_row": 2
 }
@@ -278,21 +441,20 @@ Retrieve column headers from a specific row.
 **Response:**
 ```json
 {
-  "columns": ["Name", "Email", "Phone", "Department"]
+  "columns": ["Name", "Email", "Phone", "Address"]
 }
 ```
 
----
+#### 4. Convert to DOCX
 
-#### `POST /convert`
-Convert selected columns to DOCX format.
+```http
+POST /convert
+Content-Type: application/json
 
-**Request:**
-```json
 {
-  "filename": "example_20240114_153045.xlsx",
+  "filename": "data_20240114_153045.xlsx",
   "sheet": "Sheet1",
-  "columns": ["Name", "Email", "Phone"],
+  "columns": ["Name", "Email"],
   "header_row": 2,
   "data_start_row": 3,
   "data_end_row": 100
@@ -303,29 +465,86 @@ Convert selected columns to DOCX format.
 ```json
 {
   "success": true,
-  "output_file": "output_20240114_153045.docx",
+  "output_file": "output_20240114_154530.docx",
   "row_count": 97,
-  "column_count": 3,
-  "message": "Đã xuất thành công 97 bản ghi với 3 cột"
+  "column_count": 2,
+  "message": "Đã xuất thành công 97 bản ghi với 2 cột"
 }
 ```
 
+#### 5. Download File
+
+```http
+GET /download/{filename}
+```
+
+Returns the DOCX file for download.
+
 ---
 
-#### `GET /download/<filename>`
-Download a generated DOCX file.
+## 📄 License
 
-**Request:**
-```http
-GET /download/output_20240114_153045.docx
+This project is licensed under the **MIT License**.
+
+```
+MIT License
+
+Copyright (c) 2024 Excel to DOCX Converter
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
-**Response:**
-```
-Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
-Content-Disposition: attachment; filename="output_20240114_153045.docx"
+## Support
 
-[Binary DOCX data]
-```
+### Getting Help
+
+- **Documentation**: Read this README thoroughly
+- **API Docs**: Check http://localhost:8080/docs
+- **Issues**: [GitHub Issues](https://github.com/yourusername/excel-to-docx-converter/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/excel-to-docx-converter/discussions)
+
+### Reporting Bugs
+
+When reporting bugs, please include:
+1. Excel file characteristics (size, structure)
+2. Steps to reproduce
+3. Expected vs actual behavior
+4. Screenshots if applicable
+5. Browser/OS information
+6. Server logs (if available)
+
+---
+
+## Acknowledgments
+
+Built with open-source technologies:
+
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern web framework
+- [Pandas](https://pandas.pydata.org/) - Data analysis library
+- [OpenPyXL](https://openpyxl.readthedocs.io/) - Excel file handling
+- [Python-DOCX](https://python-docx.readthedocs.io/) - Word document generation
+- [Uvicorn](https://www.uvicorn.org/) - ASGI server
+
+---
+
+<div align="center">
+
+[Report Bug](https://github.com/yourusername/excel-to-docx-converter/issues) · [Request Feature](https://github.com/yourusername/excel-to-docx-converter/issues) · [Documentation](https://github.com/yourusername/excel-to-docx-converter/wiki)
 
 </div>

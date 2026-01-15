@@ -44,7 +44,7 @@ load_dotenv()
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
 OUTPUT_FOLDER = os.getenv('OUTPUT_FOLDER', 'outputs')
 MAX_FILE_SIZE = int(os.getenv('MAX_FILE_SIZE', 50 * 1024 * 1024))
-ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', '.xlsx,.xls').split(','))
+ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', '.xlsx').split(','))
 CLEANUP_HOURS = int(os.getenv('CLEANUP_HOURS', 24))
 
 
@@ -186,7 +186,7 @@ async def upload_file(file: UploadFile = File(...)):
     📤 Upload file Excel và lấy danh sách sheets
     
     **Parameters:**
-    - **file**: File Excel (.xlsx hoặc .xls, tối đa 50MB)
+    - **file**: File Excel (.xlsx tối đa 50MB)
     
     **Returns:**
     - `filename`: Tên file đã lưu (có timestamp)
@@ -205,7 +205,7 @@ async def upload_file(file: UploadFile = File(...)):
         if not allowed_file(file.filename):
             raise HTTPException(
                 400, 
-                'File không hợp lệ. Chỉ chấp nhận .xlsx, .xls'
+                'File không hợp lệ. Chỉ chấp nhận .xlsx'
             )
         
         contents = await file.read()

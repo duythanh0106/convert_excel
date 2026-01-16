@@ -86,7 +86,7 @@
         font-size: 16px;
     }
 
-    .logout-link {
+    .settings-menu {
         position: fixed;
         top: 20px;
         right: 20px;
@@ -94,14 +94,6 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 8px 16px;
-        border-radius: 999px;
-        background: #f3f5ff;
-        color: #667eea;
-        font-size: 14px;
-        font-weight: 600;
-        text-decoration: none;
-        transition: all 0.2s;
     }
 
     @media (max-width: 900px) {
@@ -121,18 +113,109 @@
         }
     }
 
-    .logout-link:hover {
+    .settings-button {
+        list-style: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 999px;
+        background: #f3f5ff;
+        color: #667eea;
+        border: 1px solid #e2e6ff;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .settings-button::-webkit-details-marker {
+        display: none;
+    }
+
+    .settings-button:hover {
         background: #e6eaff;
         transform: translateY(-1px);
         box-shadow: 0 6px 14px rgba(102, 126, 234, 0.2);
     }
 
+    .settings-menu[open] .settings-button {
+        background: #e0e6ff;
+        box-shadow: 0 10px 18px rgba(102, 126, 234, 0.2);
+    }
+
+    .settings-icon {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+    }
+
+    .settings-dropdown {
+        position: absolute;
+        top: 52px;
+        right: 0;
+        min-width: 180px;
+        background: white;
+        border-radius: 14px;
+        border: 1px solid #e2e6ff;
+        box-shadow: 0 18px 30px rgba(17, 26, 86, 0.18);
+        padding: 8px;
+        display: none;
+    }
+
+    .settings-menu[open] .settings-dropdown {
+        display: block;
+        animation: dropdownFade 0.18s ease;
+    }
+
+    .settings-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        color: #3d4db7;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .settings-item-icon {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        fill: currentColor;
+    }
+
+    .settings-item:hover {
+        background: #f1f4ff;
+        color: #4256d4;
+    }
+
+    @keyframes dropdownFade {
+        from {
+            opacity: 0;
+            transform: translateY(-6px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
     @media (max-width: 600px) {
-        .logout-link {
+        .settings-menu {
             top: 12px;
             right: 12px;
-            padding: 7px 12px;
-            font-size: 13px;
+        }
+
+        .settings-button {
+            width: 38px;
+            height: 38px;
+        }
+
+        .settings-dropdown {
+            top: 46px;
         }
     }
     

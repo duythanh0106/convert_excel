@@ -58,9 +58,9 @@ def get_sheet_names(file_path: str) -> list[str]:
     except Exception as e:
         raise ExcelProcessorError(f"Không thể đọc file Excel: {str(e)}")
 
-def preview_sheet_data(file_path: str, sheet_name: str, num_rows: int = 10) -> dict:
+def preview_sheet_data(file_path: str, sheet_name: str, num_rows: int = 20) -> dict:
     """
-    Preview = quét TOÀN BỘ sheet, lấy N dòng CÓ DỮ LIỆU đầu tiên.
+    Preview = giữ nguyên thứ tự và số dòng như trong Excel, bao gồm dòng trống.
     KHÔNG dùng header_row, KHÔNG dùng data_start_row.
     """
     validate_excel_file(file_path)
@@ -74,9 +74,18 @@ def preview_sheet_data(file_path: str, sheet_name: str, num_rows: int = 10) -> d
     max_used_col = get_max_used_column(ws)
 
     preview = []
+    preview_limit = min(num_rows, max_row) if max_row else 0
     for row in ws.iter_rows(min_row=1, max_row=max_row, max_col=max_used_col):
-        values = ["" if c.value is None else c.value for c in row]
+        values = []
+        for cell in row:
+            value = cell.value
+            if isinstance(value, str):
+                value = value.strip()
+            values.append("" if value is None else value)
+
         preview.append(values)
+        if len(preview) >= preview_limit:
+            break
 
     wb.close()
 
@@ -84,6 +93,7 @@ def preview_sheet_data(file_path: str, sheet_name: str, num_rows: int = 10) -> d
         "preview": preview,
         "total_rows": max_row,
         "total_cols": max_used_col,
+        "display_rows": len(preview),
     }
 
 def get_column_headers(file_path: str, sheet_name: str, header_row: int) -> list[str]:
@@ -94,47 +104,53 @@ def get_column_headers(file_path: str, sheet_name: str, header_row: int) -> list
     validate_excel_file(file_path)
 
     try:
-        wb = load_workbook(file_path, read_only=True, data_only=True)
-        if sheet_name not in wb.sheetnames:
-            raise ExcelProcessorError(f"Sheet '{sheet_name}' không tồn tại")
+        def read_headers(data_only: bool) -> list[str]:
+            wb = load_workbook(file_path, read_only=True, data_only=data_only)
+            try:
+                if sheet_name not in wb.sheetnames:
+                    raise ExcelProcessorError(f"Sheet '{sheet_name}' không tồn tại")
 
-        ws = wb[sheet_name]
-        
-        if ws.max_row and header_row > ws.max_row:
-             wb.close()
-             raise ExcelProcessorError(f"Dòng header ({header_row}) lớn hơn tổng số dòng ({ws.max_row})")
+                ws = wb[sheet_name]
 
-        headers = []
-        found_row = False
-        max_used_col = get_max_used_column(ws)
-
-        row_generator = ws.iter_rows(
-            min_row=header_row,
-            max_row=header_row,
-            max_col=max_used_col
-        )
-        
-        try:
-            row_cells = next(row_generator)
-            found_row = True
-            
-            for idx, cell in enumerate(row_cells, start=1):
-                if len(headers) > 100 and cell.value is None: 
-                    continue 
-
-                if cell.value is None or str(cell.value).strip() == "":
-                    headers.append(f"Cột {idx}")
-                else:
-                    headers.append(
-                        str(cell.value).replace("\n", " ").replace("\t", " ").strip()
+                if ws.max_row and header_row > ws.max_row:
+                    raise ExcelProcessorError(
+                        f"Dòng header ({header_row}) lớn hơn tổng số dòng ({ws.max_row})"
                     )
-        except StopIteration:
-            pass
 
-        wb.close()
-        
-        if not found_row or not headers:
-             return []
+                max_used_col = get_max_used_column(ws)
+                if max_used_col == 0:
+                    return []
+
+                row_generator = ws.iter_rows(
+                    min_row=header_row,
+                    max_row=header_row,
+                    max_col=max_used_col
+                )
+
+                try:
+                    row_cells = next(row_generator)
+                except StopIteration:
+                    return []
+
+                headers = []
+                for cell in row_cells:
+                    value = cell.value
+                    if value is None:
+                        continue
+
+                    header = str(value).replace("\n", " ").replace("\t", " ").strip()
+                    if header == "":
+                        continue
+
+                    headers.append(header)
+
+                return headers
+            finally:
+                wb.close()
+
+        headers = read_headers(data_only=True)
+        if not headers:
+            headers = read_headers(data_only=False)
 
         return headers
 

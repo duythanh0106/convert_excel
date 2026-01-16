@@ -1,0 +1,433 @@
+<script>
+    let currentFilename = '';
+    let currentSheet = '';
+    let selectedColumns = [];
+    let headerRow = 2;
+    let dataStartRow = 3;
+    let dataEndRow = null;
+
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const sheetSelect = document.getElementById('sheetSelect');
+    const columnsGrid = document.getElementById('columnsGrid');
+    const targetFormatSelect = document.getElementById('targetFormatSelect');
+    const statusMsg = document.getElementById('statusMsg');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    const loadingSubtext = document.getElementById('loadingSubtext');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+
+    // Loading functions
+    function showLoading(text, subtext, showProgress = false) {
+        loadingText.textContent = text;
+        loadingSubtext.textContent = subtext;
+        if (showProgress) {
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            progressBar.classList.remove('indeterminate');
+        } else {
+            progressContainer.classList.add('hidden');
+        }
+        loadingOverlay.classList.add('active');
+    }
+
+    function updateProgress(percent, text = '') {
+        progressBar.style.width = percent + '%';
+        if (text) {
+            progressBar.textContent = text;
+        }
+    }
+
+    function showIndeterminateProgress() {
+        progressContainer.classList.remove('hidden');
+        progressBar.classList.add('indeterminate');
+        progressBar.textContent = '';
+    }
+
+    function hideLoading() {
+        loadingOverlay.classList.remove('active');
+        progressContainer.classList.add('hidden');
+        progressBar.classList.remove('indeterminate');
+    }
+
+    // Upload handlers
+    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    let dragCounter = 0;
+    
+    uploadArea.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragCounter++;
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0) {
+            uploadArea.classList.remove('dragover');
+        }
+    });
+    
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        uploadArea.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileUpload();
+        }
+    });
+
+    fileInput.addEventListener('change', handleFileUpload);
+
+    async function handleFileUpload() {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        // Check file size
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        if (file.size > maxSize) {
+            showStatus(`File quá lớn: ${(file.size / 1024 / 1024).toFixed(1)}MB (tối đa 50MB)`, 'error');
+            return;
+        }
+
+        showLoading('Đang tải file lên...', `${file.name} (${(file.size / 1024).toFixed(1)} KB)`, true);
+        
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            // Simulate progress for upload
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += 10;
+                if (progress <= 90) {
+                    updateProgress(progress, `${progress}%`);
+                }
+            }, 100);
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            clearInterval(progressInterval);
+            updateProgress(100, '100%');
+
+            const data = await response.json();
+            
+            setTimeout(() => {
+                hideLoading();
+                
+                if (data.error) {
+                    showStatus('Lỗi: ' + data.error, 'error');
+                    return;
+                }
+
+                currentFilename = data.filename;
+                fileInfo.textContent = `✓ ${file.name} (${data.file_size})`;
+                fileInfo.classList.remove('hidden');
+
+                sheetSelect.innerHTML = '<option value="">-- Chọn sheet --</option>';
+                data.sheets.forEach(sheet => {
+                    const option = document.createElement('option');
+                    option.value = sheet;
+                    option.textContent = sheet;
+                    sheetSelect.appendChild(option);
+                });
+
+                document.getElementById('step2').classList.remove('hidden');
+                document.getElementById('step2').scrollIntoView({ behavior: 'smooth' });
+                showStatus('File đã tải lên thành công! Vui lòng chọn sheet.', 'success');
+            }, 500);
+        } catch (error) {
+            hideLoading();
+            showStatus('Lỗi khi tải file: ' + error.message, 'error');
+        }
+    }
+
+    
+    async function loadPreview() {
+        const selectedSheet = sheetSelect.value;
+        if (!selectedSheet) {
+            document.getElementById('step3').classList.add('hidden');
+            return;
+        }
+
+        currentSheet = selectedSheet;
+        showLoading('Đang tải preview...', 'Đọc dữ liệu từ sheet', false);
+        showIndeterminateProgress();
+
+        try {
+            const response = await fetch('/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: currentFilename,
+                    sheet: selectedSheet,
+                    num_rows: 10
+                })
+            });
+
+            const data = await response.json();
+            hideLoading();
+
+
+            if (!data || !Array.isArray(data.preview)) {
+                throw new Error('Preview data không hợp lệ');
+            }
+
+
+            const rows = data.preview.map(row =>
+                Array.isArray(row) ? row : []
+            );
+
+            const colCount = 
+                Number.isInteger(data.total_cols) && data.total_cols > 0
+                    ? data.total_cols
+                    : rows.reduce((max, row) => Math.max(max, row.length || 0), 0);
+
+            if (colCount === 0) {
+                document.getElementById('previewTable').innerHTML =
+                    '<p>Không tìm thấy cột dữ liệu.</p>';
+                showStatus('Không tìm thấy cột dữ liệu.', 'info');
+                return;
+            }
+
+
+            let html = '<table><thead><tr><th>Dòng</th>';
+            for (let i = 0; i < colCount; i++) {
+                html += `<th>Cột ${i + 1}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            rows.forEach((row, rIdx) => {
+                html += `<tr><td class="row-number">${rIdx + 1}</td>`;
+                for (let c = 0; c < colCount; c++) {
+                    const cell = row[c];
+                    const text =
+                        cell === null || cell === undefined
+                            ? ''
+                            : String(cell);
+
+                    const display =
+                        text.length > 50
+                            ? text.slice(0, 50) + '...'
+                            : text;
+
+                    html += `<td>${display || '&nbsp;'}</td>`;
+                }
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('previewTable').innerHTML = html;
+
+
+            document.getElementById('previewRows').textContent = rows.length;
+            document.getElementById('totalRows').textContent =
+                Number.isInteger(data.total_rows)
+                    ? data.total_rows
+                    : rows.length;
+            document.getElementById('totalCols').textContent =
+                Number.isInteger(data.total_cols)
+                    ? data.total_cols
+                    : colCount;
+
+            document.getElementById('step3').classList.remove('hidden');
+            document.getElementById('step3').scrollIntoView({ behavior: 'smooth' });
+
+            showStatus(`Đã tải preview sheet "${selectedSheet}"`, 'success');
+
+        } catch (err) {
+            hideLoading();
+            console.error(err);
+            showStatus('Lỗi khi tải preview: ' + err.message, 'error');
+        }
+    }
+
+    function showHeaderConfig() {
+        document.getElementById('step4').classList.remove('hidden');
+        document.getElementById('step4').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function loadColumns() {
+        headerRow = parseInt(document.getElementById('headerRowInput').value) || 2;
+        dataStartRow = parseInt(document.getElementById('dataStartInput').value) || 3;
+        const dataEndInput = document.getElementById('dataEndInput').value;
+        dataEndRow = dataEndInput ? parseInt(dataEndInput) : null;
+
+        if (headerRow < 1) {
+            showStatus('Dòng header phải >= 1', 'error');
+            return;
+        }
+
+        if (dataStartRow <= headerRow) {
+            showStatus('Dòng bắt đầu data phải lớn hơn dòng header', 'error');
+            return;
+        }
+
+        if (dataEndRow !== null && dataEndRow < dataStartRow) {
+            showStatus('Dòng kết thúc phải >= dòng bắt đầu', 'error');
+            return;
+        }
+
+        showLoading('Đang phân tích cột...', 'Đọc header từ Excel', false);
+
+        try {
+            const response = await fetch('/get-columns', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    filename: currentFilename,
+                    sheet: currentSheet,
+                    header_row: headerRow
+                })
+            });
+
+            const data = await response.json();
+            
+            hideLoading();
+
+            if (!response.ok) {
+                const detail = data.detail || data.error || 'Không thể đọc cột';
+                showStatus('Lỗi: ' + detail, 'error');
+                return;
+            }
+
+            const columns = Array.isArray(data.columns) ? data.columns : [];
+            if (columns.length === 0) {
+                showStatus('Không tìm thấy cột hợp lệ.', 'info');
+                return;
+            }
+            selectedColumns = [];
+
+            columnsGrid.innerHTML = '';
+            document.getElementById('totalCount').textContent = columns.length;
+            document.getElementById('selectedCount').textContent = '0';
+
+            columns.forEach((col, index) => {
+                const div = document.createElement('div');
+                div.className = 'column-item';
+                div.innerHTML = `
+                    <input type="checkbox" id="col${index}" onchange="updateColumnCount()">
+                    <label for="col${index}">${col}</label>
+                `;
+                div.querySelector('input').dataset.column = col;
+                columnsGrid.appendChild(div);
+            });
+
+            document.getElementById('step5').classList.remove('hidden');
+            document.getElementById('step6').classList.remove('hidden');
+            document.getElementById('step5').scrollIntoView({ behavior: 'smooth' });
+            showStatus(`Tìm thấy ${columns.length} cột. Chọn cột cần xuất.`, 'success');
+        } catch (error) {
+            hideLoading();
+            showStatus('Lỗi khi đọc cột: ' + error.message, 'error');
+        }
+    }
+
+    function selectAll() {
+        columnsGrid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.checked = true;
+        });
+        updateColumnCount();
+    }
+
+    function deselectAll() {
+        columnsGrid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+        });
+        updateColumnCount();
+    }
+
+    function updateColumnCount() {
+        selectedColumns = Array.from(columnsGrid.querySelectorAll('input[type="checkbox"]:checked'))
+            .map(cb => cb.dataset.column);
+        document.getElementById('selectedCount').textContent = selectedColumns.length;
+    }
+
+    async function convertFile() {
+        if (!currentFilename || !currentSheet || selectedColumns.length === 0) {
+            showStatus('Vui lòng chọn sheet và ít nhất một cột!', 'error');
+            return;
+        }
+
+        const targetFormat = targetFormatSelect ? targetFormatSelect.value : 'docx';
+        const rangeText = dataEndRow ? `từ dòng ${dataStartRow} đến ${dataEndRow}` : `từ dòng ${dataStartRow} đến hết`;
+        const formatLabel = targetFormat === 'markdown' ? 'Markdown' : 'DOCX';
+        showLoading(`Đang chuyển đổi sang ${formatLabel}...`, `${selectedColumns.length} cột, ${rangeText}`, true);
+
+        try {
+            // Simulate progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += 5;
+                if (progress <= 90) {
+                    updateProgress(progress, `${progress}%`);
+                }
+            }, 150);
+
+            const convertUrl = targetFormat === 'markdown' ? '/convert-markdown' : '/convert';
+            const response = await fetch(convertUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    filename: currentFilename,
+                    sheet: currentSheet,
+                    columns: selectedColumns,
+                    header_row: headerRow,
+                    data_start_row: dataStartRow,
+                    data_end_row: dataEndRow
+                })
+            });
+
+            clearInterval(progressInterval);
+            updateProgress(100, '100%');
+
+            const data = await response.json();
+
+            setTimeout(() => {
+                hideLoading();
+                
+                if (data.error) {
+                    showStatus('Lỗi: ' + data.error, 'error');
+                    return;
+                }
+
+                showStatus(`✓ ${data.message}`, 'success');
+                
+                const downloadBtn = document.getElementById('downloadBtn');
+                downloadBtn.onclick = () => {
+                    window.location.href = `/download/${data.output_file}`;
+                };
+
+                document.getElementById('downloadSection').classList.remove('hidden');
+                document.getElementById('downloadSection').scrollIntoView({ behavior: 'smooth' });
+            }, 500);
+        } catch (error) {
+            hideLoading();
+            showStatus('Lỗi khi chuyển đổi: ' + error.message, 'error');
+        }
+    }
+
+    function showStatus(message, type) {
+        statusMsg.textContent = message;
+        statusMsg.className = `status ${type}`;
+    }
+
+    function reset() {
+        location.reload();
+    }
+</script>

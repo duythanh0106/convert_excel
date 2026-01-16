@@ -1,11 +1,33 @@
 import os
 import pandas as pd
+import tempfile
 from docx import Document
 from docx.shared import Pt
 from openpyxl import load_workbook
 
 class ExcelProcessorError(Exception):
     pass
+
+def is_cell_empty(value) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str) and value.strip() == "":
+        return True
+    return False
+
+def get_max_used_column(ws) -> int:
+    max_used_col = 0
+    max_row = ws.max_row or 0
+
+    for row in ws.iter_rows(min_row=1, max_row=max_row):
+        last_non_empty = 0
+        for idx, cell in enumerate(row, start=1):
+            if not is_cell_empty(cell.value):
+                last_non_empty = idx
+        if last_non_empty > max_used_col:
+            max_used_col = last_non_empty
+
+    return max_used_col
 
 def validate_file_exists(file_path: str) -> None:
     if not os.path.exists(file_path):
@@ -49,21 +71,19 @@ def preview_sheet_data(file_path: str, sheet_name: str, num_rows: int = 10) -> d
 
     ws = wb[sheet_name]
     max_row = ws.max_row or 0
+    max_used_col = get_max_used_column(ws)
 
     preview = []
-    max_col = 0
-
-    for row in ws.iter_rows(min_row=1, max_row=max_row):
+    for row in ws.iter_rows(min_row=1, max_row=max_row, max_col=max_used_col):
         values = ["" if c.value is None else c.value for c in row]
         preview.append(values)
-        max_col = max(max_col, len(values))
 
     wb.close()
 
     return {
         "preview": preview,
         "total_rows": max_row,
-        "total_cols": max_col,
+        "total_cols": max_used_col,
     }
 
 def get_column_headers(file_path: str, sheet_name: str, header_row: int) -> list[str]:
@@ -86,19 +106,24 @@ def get_column_headers(file_path: str, sheet_name: str, header_row: int) -> list
 
         headers = []
         found_row = False
-        
-        row_generator = ws.iter_rows(min_row=header_row, max_row=header_row)
+        max_used_col = get_max_used_column(ws)
+
+        row_generator = ws.iter_rows(
+            min_row=header_row,
+            max_row=header_row,
+            max_col=max_used_col
+        )
         
         try:
             row_cells = next(row_generator)
             found_row = True
             
-            for cell in row_cells:
+            for idx, cell in enumerate(row_cells, start=1):
                 if len(headers) > 100 and cell.value is None: 
                     continue 
 
                 if cell.value is None or str(cell.value).strip() == "":
-                    headers.append(f"Cột {cell.column}")
+                    headers.append(f"Cột {idx}")
                 else:
                     headers.append(
                         str(cell.value).replace("\n", " ").replace("\t", " ").strip()
@@ -185,17 +210,20 @@ def convert_excel_to_docx(
         style.font.size = Pt(11)
 
         total_rows = len(df_final)
-        for i, row in df_final.iterrows():
+
+        for idx, (_, row) in enumerate(df_final.iterrows()):
             p = doc.add_paragraph()
+
             for col in selected_columns:
                 val = str(row[col]).strip()
-                
+
                 run_header = p.add_run(f"{col}: ")
                 run_header.bold = True
                 p.add_run(f"{val}\n")
-            
-            if i < total_rows - 1:
+
+            if idx < total_rows - 1:
                 doc.add_paragraph("-" * 50)
+
 
         os.makedirs(os.path.dirname(output_docx_path), exist_ok=True)
         doc.save(output_docx_path)
@@ -204,3 +232,91 @@ def convert_excel_to_docx(
 
     except Exception as e:
         raise ExcelProcessorError(f"Lỗi khi ghi file DOCX: {str(e)}")
+
+def convert_excel_to_markdown(
+    excel_file_path: str,
+    output_md_path: str,
+    sheet_name: str,
+    selected_columns: list[str],
+    header_row: int,
+    data_start_row: int,
+    data_end_row: int | None = None,
+) -> int:
+    validate_excel_file(excel_file_path)
+
+    if not selected_columns:
+        raise ExcelProcessorError("Chưa chọn cột để xuất")
+
+    if data_start_row <= header_row:
+        raise ExcelProcessorError("Dòng data phải > dòng header")
+
+    try:
+        df = pd.read_excel(
+            excel_file_path,
+            sheet_name=sheet_name,
+            header=header_row - 1,
+            dtype=str
+        )
+    except Exception as e:
+        raise ExcelProcessorError(f"Lỗi đọc dữ liệu Excel: {str(e)}")
+
+    df.columns = (
+        df.columns.astype(str)
+        .str.replace("\n", " ")
+        .str.replace("\t", " ")
+        .str.strip()
+    )
+
+    missing = [c for c in selected_columns if c not in df.columns]
+    if missing:
+        raise ExcelProcessorError(f"Không tìm thấy các cột sau: {', '.join(missing)}")
+
+    start_idx = data_start_row - header_row - 1
+    end_idx = None
+    if data_end_row:
+        end_idx = data_end_row - header_row
+
+    if start_idx < 0:
+        start_idx = 0
+
+    df_subset = df.iloc[start_idx:end_idx].copy()
+    df_final = df_subset[selected_columns].reset_index(drop=True)
+    df_final = df_final.fillna("")
+    df_final = df_final.replace(r'^\s*$', pd.NA, regex=True).ffill()
+    df_final = df_final.fillna("")
+
+    if df_final.empty:
+        raise ExcelProcessorError("Không có dữ liệu nào trong khoảng dòng đã chọn")
+
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as temp_file:
+            temp_path = temp_file.name
+
+        df_final.to_excel(temp_path, index=False)
+
+        try:
+            from markitdown import MarkItDown
+        except Exception:
+            raise ExcelProcessorError(
+                "Chưa cài markitdown. Cài bằng: pip install markitdown[xlsx]"
+            )
+
+        md = MarkItDown()
+        result = md.convert(temp_path)
+        markdown_text = getattr(result, "text_content", None)
+        if markdown_text is None:
+            markdown_text = str(result)
+
+        os.makedirs(os.path.dirname(output_md_path), exist_ok=True)
+        with open(output_md_path, "w", encoding="utf-8") as f:
+            f.write(markdown_text)
+
+        return len(df_final)
+    except ExcelProcessorError:
+        raise
+    except Exception as e:
+        raise ExcelProcessorError(f"Lỗi khi tạo Markdown: {str(e)}")
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)

@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -8,6 +9,7 @@ import time
 import threading
 from datetime import datetime
 import socket
+import ipaddress
 from starlette.middleware.sessions import SessionMiddleware
 from auth_oidc import (
     login_page,
@@ -21,6 +23,7 @@ from excel_processor import (
     preview_sheet_data,
     get_column_headers,
     convert_excel_to_docx,
+    convert_excel_to_markdown,
     ExcelProcessorError
 )
 
@@ -36,6 +39,8 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+templates = Jinja2Templates(directory="templates")
 
 # CORS middleware (nếu cần gọi API từ domain khác)
 app.add_middleware(
@@ -179,36 +184,59 @@ def schedule_cleanup():
     cleanup_thread.start()
 
 
-def get_host_ip():
-    """Lấy IP thật của máy host"""
+def get_host_ip() -> str:
+    """Lấy IPv4 tốt nhất để máy khác trong LAN truy cập (hoặc localhost nếu không tìm được)."""
+
+    def is_public_ipv4(ip: str) -> bool:
+        try:
+            a = ipaddress.ip_address(ip)
+            return (
+                a.version == 4
+                and not a.is_loopback
+                and not a.is_private
+                and not a.is_link_local
+                and not a.is_reserved
+                and not a.is_multicast
+            )
+        except ValueError:
+            return False
+
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.settimeout(0.1)
+        s.settimeout(0.2)
         s.connect(("8.8.8.8", 80))
         local_ip = s.getsockname()[0]
         s.close()
-        
-        if not local_ip.startswith(('172.', '10.0.0.')):
+
+        # local_ip thường là IP LAN (private) => vẫn hữu ích để truy cập trong mạng nội bộ
+        if local_ip and local_ip != "127.0.0.1":
             return local_ip
     except Exception:
         pass
-    
+
+    # 2) Duyệt các IPv4 từ getaddrinfo
     try:
         hostname = socket.gethostname()
         addrs = socket.getaddrinfo(hostname, None, socket.AF_INET)
-        
+
+        # Ưu tiên public (nếu có)
         for addr in addrs:
-            ip = addr[4][0]
-            if not ip.startswith(('127.', '172.', '169.', '10.0.0.')):
-                return ip
-        
+            sockaddr = addr[4]
+            if isinstance(sockaddr, tuple) and len(sockaddr) >= 1 and isinstance(sockaddr[0], str):
+                ip = sockaddr[0]
+                if is_public_ipv4(ip):
+                    return ip
+
+        # Nếu không có public, lấy IP IPv4 không loopback đầu tiên (LAN)
         for addr in addrs:
-            ip = addr[4][0]
-            if not ip.startswith('127.'):
-                return ip
+            sockaddr = addr[4]
+            if isinstance(sockaddr, tuple) and len(sockaddr) >= 1 and isinstance(sockaddr[0], str):
+                ip = sockaddr[0]
+                if ip and ip != "127.0.0.1":
+                    return ip
     except Exception:
         pass
-    
+
     return "localhost"
 
 
@@ -217,11 +245,7 @@ async def index(request: Request):
     if "user" not in request.session:
         return RedirectResponse("/login")
 
-    try:
-        with open('templates/index.html', 'r', encoding='utf-8') as f:
-            return f.read()
-    except FileNotFoundError:
-        raise HTTPException(404, "File index.html không tồn tại")
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.post('/upload', tags=["Excel Processing"])
@@ -439,6 +463,59 @@ async def convert(data: ConvertRequest):
     except Exception as e:
         raise HTTPException(500, f'Lỗi khi chuyển đổi: {str(e)}')
 
+@app.post('/convert-markdown', tags=["Conversion"])
+async def convert_markdown(data: ConvertRequest):
+    """
+    🔄 Chuyển đổi Excel sang Markdown
+    """
+    try:
+        if data.data_start_row <= data.header_row:
+            raise HTTPException(
+                400,
+                'Dòng bắt đầu data phải lớn hơn dòng header'
+            )
+
+        if data.data_end_row and data.data_end_row < data.data_start_row:
+            raise HTTPException(
+                400,
+                'Dòng kết thúc phải lớn hơn hoặc bằng dòng bắt đầu'
+            )
+
+        input_path = os.path.join(UPLOAD_FOLDER, data.filename)
+
+        if not os.path.exists(input_path):
+            raise HTTPException(404, 'File không tồn tại. Vui lòng upload lại')
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"output_{timestamp}.md"
+        output_path = os.path.join(OUTPUT_FOLDER, output_filename)
+
+        row_count = convert_excel_to_markdown(
+            input_path,
+            output_path,
+            data.sheet,
+            data.columns,
+            data.header_row,
+            data.data_start_row,
+            data.data_end_row
+        )
+
+        return {
+            'success': True,
+            'output_file': output_filename,
+            'row_count': row_count,
+            'column_count': len(data.columns),
+            'message': f'Đã xuất Markdown thành công {row_count} bản ghi với {len(data.columns)} cột'
+        }
+
+    except ExcelProcessorError as e:
+        raise HTTPException(400, str(e))
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(400, f'Giá trị không hợp lệ: {str(e)}')
+    except Exception as e:
+        raise HTTPException(500, f'Lỗi khi chuyển đổi: {str(e)}')
 
 @app.get('/download/{filename}', tags=["Download"])
 async def download(filename: str):
@@ -462,10 +539,16 @@ async def download(filename: str):
         if not os.path.exists(filepath):
             raise HTTPException(404, 'File không tồn tại')
         
+        ext = os.path.splitext(filename)[1].lower()
+        if ext == ".md":
+            media_type = "text/markdown; charset=utf-8"
+        else:
+            media_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
         return FileResponse(
-            filepath, 
+            filepath,
             filename=filename,
-            media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            media_type=media_type
         )
         
     except HTTPException:

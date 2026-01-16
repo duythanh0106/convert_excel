@@ -1,0 +1,11 @@
+<script>
+    // Check for error parameter in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    
+    if (error === 'auth_failed') {
+        const alertBox = document.getElementById('alert');
+        alertBox.textContent = 'Đăng nhập thất bại. Vui lòng thử lại.';
+        alertBox.className = 'alert error show';
+    }
+</script>

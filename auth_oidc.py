@@ -1,9 +1,9 @@
 # app/auth.py
 
 from fastapi import HTTPException, Request, Depends
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
 from authlib.integrations.starlette_client import OAuth
-from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -43,10 +43,10 @@ def get_current_user(request: Request):
 
 # ---------- Pages ----------
 TEMPLATES_DIR = BASE_DIR / "templates"
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 async def login_page(request: Request):
-    login_file = TEMPLATES_DIR / "login.html"
-    return HTMLResponse(login_file.read_text(encoding="utf-8"))
+    return templates.TemplateResponse("login.html", {"request": request})
 
 
 # ---------- Auth flows ----------

@@ -1,0 +1,77 @@
+<!-- Step 1: Upload File -->
+<div class="step" id="step1">
+    <h3>Bước 1: Chọn file Excel</h3>
+    <div class="upload-area" id="uploadArea">
+        <div class="upload-icon">📁</div>
+        <p style="font-size: 16px; margin-bottom: 5px;"><strong>Click để chọn file</strong> hoặc kéo thả vào đây</p>
+        <p style="font-size: 14px; color: #999;">Hỗ trợ: .xlsx (Tối đa 50MB)</p>
+        <input type="file" id="fileInput" accept=".xlsx" style="display: none;">
+    </div>
+    <div id="fileInfo" class="file-info hidden"></div>
+</div>
+
+<!-- Step 2: Select Sheet -->
+<div class="step hidden" id="step2">
+    <h3>Bước 2: Chọn Sheet</h3>
+    <select id="sheetSelect" onchange="loadPreview()">
+        <option value="">-- Chọn sheet --</option>
+    </select>
+</div>
+
+<!-- Step 3: Preview Data -->
+<div class="step hidden" id="step3">
+    <h3>Bước 3: Xem trước dữ liệu</h3>
+    <div class="info-box">
+        📊 Hiển thị <strong id="previewRows">10</strong> dòng đầu tiên. 
+        Tổng: <strong id="totalRows">0</strong> dòng, <strong id="totalCols">0</strong> cột.
+    </div>
+    <div class="preview-table" id="previewTable"></div>
+    <button onclick="showHeaderConfig()" style="margin-top: 15px;">
+        ✓ Tiếp tục cấu hình
+    </button>
+</div>
+
+<!-- Step 4: Configure Header & Data Row -->
+<div class="step hidden" id="step4">
+    <h3>Bước 4: Chọn dòng Header và Data</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+        <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Dòng chứa header</label>
+            <input type="number" id="headerRowInput" value="2" min="1" 
+                   style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px;">
+            <p style="font-size: 12px; color: #666; margin-top: 5px;">Dòng chứa tên cột</p>
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Dòng bắt đầu data</label>
+            <input type="number" id="dataStartInput" value="3" min="2"
+                   style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px;">
+            <p style="font-size: 12px; color: #666; margin-top: 5px;">Dòng đầu tiên có data</p>
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Dòng kết thúc data</label>
+            <input type="number" id="dataEndInput" placeholder="Để trống = hết sheet" min="3"
+                   style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px;">
+            <p style="font-size: 12px; color: #666; margin-top: 5px;">Để trống để lấy hết</p>
+        </div>
+    </div>
+    <button onclick="loadColumns()" style="margin-top: 15px;">
+        🔍 Phân tích cột
+    </button>
+</div>
+
+<!-- Step 5: Select Columns -->
+<div class="step hidden" id="step5">
+    <h3>Bước 5: Chọn các cột cần xuất (<span id="selectedCount">0</span>/<span id="totalCount">0</span>)</h3>
+    <div class="controls">
+        <button onclick="selectAll()">✓ Chọn tất cả</button>
+        <button onclick="deselectAll()">✗ Bỏ chọn tất cả</button>
+    </div>
+    <div class="columns-grid" id="columnsGrid"></div>
+</div>
+
+<!-- Step 6: Convert -->
+<div class="step hidden" id="step6">
+    <button id="convertBtn" onclick="convertFile()">
+        🔄 Chuyển đổi sang DOCX
+    </button>
+</div>

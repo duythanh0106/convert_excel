@@ -60,7 +60,7 @@ def get_sheet_names(file_path: str) -> list[str]:
 
 def preview_sheet_data(file_path: str, sheet_name: str, num_rows: int = 20) -> dict:
     """
-    Preview = giữ nguyên thứ tự và số dòng như trong Excel, bao gồm dòng trống.
+    Preview = giữ dòng trống ở giữa, chỉ bỏ các dòng trống cuối sheet.
     KHÔNG dùng header_row, KHÔNG dùng data_start_row.
     """
     validate_excel_file(file_path)
@@ -74,24 +74,45 @@ def preview_sheet_data(file_path: str, sheet_name: str, num_rows: int = 20) -> d
     max_used_col = get_max_used_column(ws)
 
     preview = []
-    preview_limit = min(num_rows, max_row) if max_row else 0
-    for row in ws.iter_rows(min_row=1, max_row=max_row, max_col=max_used_col):
+    last_data_row = 0
+    preview_limit = 20
+    if max_used_col == 0:
+        wb.close()
+        return {
+            "preview": [],
+            "total_rows": 0,
+            "total_cols": 0,
+            "display_rows": 0,
+        }
+
+    for row_index, row in enumerate(
+        ws.iter_rows(min_row=1, max_row=max_row, max_col=max_used_col),
+        start=1
+    ):
         values = []
+        has_data = False
         for cell in row:
             value = cell.value
             if isinstance(value, str):
                 value = value.strip()
             values.append("" if value is None else value)
+            if not is_cell_empty(value):
+                has_data = True
 
-        preview.append(values)
-        if len(preview) >= preview_limit:
-            break
+        if has_data:
+            last_data_row = row_index
+
+        if len(preview) < preview_limit:
+            preview.append(values)
 
     wb.close()
 
+    if last_data_row < len(preview):
+        preview = preview[:last_data_row]
+
     return {
         "preview": preview,
-        "total_rows": max_row,
+        "total_rows": last_data_row,
         "total_cols": max_used_col,
         "display_rows": len(preview),
     }

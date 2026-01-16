@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent
 
 OIDC_CLIENT_ID = os.getenv("OIDC_CLIENT_ID")
 OIDC_CLIENT_SECRET = os.getenv("OIDC_CLIENT_SECRET")
@@ -42,9 +42,10 @@ def get_current_user(request: Request):
 
 
 # ---------- Pages ----------
+TEMPLATES_DIR = BASE_DIR / "templates"
 
 async def login_page(request: Request):
-    login_file = BASE_DIR / "convert_excel" / "templates" / "login.html"
+    login_file = TEMPLATES_DIR / "login.html"
     return HTMLResponse(login_file.read_text(encoding="utf-8"))
 
 
@@ -54,7 +55,7 @@ async def login_google(request: Request):
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(400, "Google OAuth not configured")
 
-    redirect_uri = request.url_for("auth_callback_google")
+    redirect_uri = str(request.url_for("auth_callback_google"))
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 

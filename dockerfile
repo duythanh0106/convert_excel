@@ -19,7 +19,7 @@ RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 
 COPY --from=builder /root/.local /home/appuser/.local
-COPY --chown=appuser:appuser main.py excel_processor.py ./
+COPY --chown=appuser:appuser main.py excel_processor.py auth_oidc.py ./
 COPY --chown=appuser:appuser templates/ ./templates/
 
 ENV PATH=/home/appuser/.local/bin:$PATH

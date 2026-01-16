@@ -18,6 +18,10 @@ services:
       - MAX_FILE_SIZE=52428800
       - CLEANUP_HOURS=24
       - TZ=Asia/Ho_Chi_Minh
+      - SECRET_KEY
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - GOOGLE_CLIENT_REDIRECT_URI
 
     mem_limit: 2g
     cpus: 2.0

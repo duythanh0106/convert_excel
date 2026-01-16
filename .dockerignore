@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+.env.*
+
+# Runtime data
+uploads/
+outputs/
+*.log
+
+# Git / IDE
+.git
+.gitignore
+.vscode/
+.idea/
+
+# OS
+.DS_Store

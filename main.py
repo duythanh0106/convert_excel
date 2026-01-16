@@ -1,5 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -8,6 +8,13 @@ import time
 import threading
 from datetime import datetime
 import socket
+from starlette.middleware.sessions import SessionMiddleware
+from auth_oidc import (
+    login_page,
+    login_google,
+    auth_callback_google,
+    logout,
+)
 
 from excel_processor import (
     get_sheet_names,
@@ -17,6 +24,10 @@ from excel_processor import (
     ExcelProcessorError
 )
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(
     title="Excel to DOCX Converter",
@@ -35,12 +46,45 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SECRET_KEY", "change-this-secret"),
+    same_site="lax",
+    https_only=False,   # True nếu chạy HTTPS
+)
+
+# ===== AUTH ROUTES =====
+app.add_api_route(
+    "/login",
+    login_page,
+    methods=["GET"],
+    include_in_schema=False,
+    name="login_page",
+)
+
+app.add_api_route(
+    "/auth/login/google",
+    login_google,
+    methods=["GET"],
+    include_in_schema=False,
+)
+
+app.add_api_route(
+    "/auth/callback/google",
+    auth_callback_google,
+    methods=["GET"],
+    include_in_schema=False,
+    name="auth_callback_google",
+)
+
+app.add_api_route(
+    "/logout",
+    logout,
+    methods=["GET"],
+    include_in_schema=False,
+)
+
 # CONFIGURATION
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
 OUTPUT_FOLDER = os.getenv('OUTPUT_FOLDER', 'outputs')
 MAX_FILE_SIZE = int(os.getenv('MAX_FILE_SIZE', 50 * 1024 * 1024))
@@ -169,10 +213,10 @@ def get_host_ip():
 
 
 @app.get('/', response_class=HTMLResponse, include_in_schema=False)
-async def index():
-    """
-    Trang chủ - Giao diện web converter
-    """
+async def index(request: Request):
+    if "user" not in request.session:
+        return RedirectResponse("/login")
+
     try:
         with open('templates/index.html', 'r', encoding='utf-8') as f:
             return f.read()

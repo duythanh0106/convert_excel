@@ -168,19 +168,6 @@
             alertBox.textContent = 'Đăng nhập thất bại. Vui lòng thử lại.';
             alertBox.className = 'alert error show';
         }
-        
-        // Show info message on first load
-        window.addEventListener('load', () => {
-            if (!error) {
-                const alertBox = document.getElementById('alert');
-                alertBox.textContent = 'Chọn phương thức đăng nhập bên dưới';
-                alertBox.className = 'alert info show';
-                
-                setTimeout(() => {
-                    alertBox.classList.remove('show');
-                }, 3000);
-            }
-        });
     </script>
 </body>
 </html>

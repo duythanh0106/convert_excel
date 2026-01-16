@@ -59,10 +59,6 @@ def get_sheet_names(file_path: str) -> list[str]:
         raise ExcelProcessorError(f"Không thể đọc file Excel: {str(e)}")
 
 def preview_sheet_data(file_path: str, sheet_name: str, num_rows: int = 20) -> dict:
-    """
-    Preview = giữ dòng trống ở giữa, chỉ bỏ các dòng trống cuối sheet.
-    KHÔNG dùng header_row, KHÔNG dùng data_start_row.
-    """
     validate_excel_file(file_path)
 
     wb = load_workbook(file_path, read_only=True, data_only=True)
@@ -118,10 +114,6 @@ def preview_sheet_data(file_path: str, sheet_name: str, num_rows: int = 20) -> d
     }
 
 def get_column_headers(file_path: str, sheet_name: str, header_row: int) -> list[str]:
-    """
-    SỬA LỖI QUAN TRỌNG:
-    Dùng iter_rows thay vì truy cập trực tiếp index để tránh lỗi với openpyxl read_only
-    """
     validate_excel_file(file_path)
 
     try:
@@ -207,7 +199,6 @@ def convert_excel_to_docx(
     except Exception as e:
          raise ExcelProcessorError(f"Lỗi đọc dữ liệu Excel: {str(e)}")
 
-    # Chuẩn hóa tên cột
     df.columns = (
         df.columns.astype(str)
         .str.replace("\n", " ")
@@ -215,7 +206,6 @@ def convert_excel_to_docx(
         .str.strip()
     )
     
-    # Kiểm tra cột
     missing = [c for c in selected_columns if c not in df.columns]
     if missing:
         raise ExcelProcessorError(f"Không tìm thấy các cột sau: {', '.join(missing)}")
@@ -336,7 +326,7 @@ def convert_excel_to_markdown(
             from markitdown import MarkItDown
         except Exception:
             raise ExcelProcessorError(
-                "Chưa cài markitdown. Cài bằng: pip install markitdown[xlsx]"
+                "Chưa cài markitdown"
             )
 
         md = MarkItDown()

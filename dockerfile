@@ -9,7 +9,6 @@ RUN pip install \
  --retries 10 \
  -r requirements.txt
 
-# ====================== Runtime ======================
 
 FROM python:3.11-slim
 WORKDIR /app

@@ -19,7 +19,6 @@
     const progressContainer = document.getElementById('progressContainer');
     const progressBar = document.getElementById('progressBar');
 
-    // Loading functions
     function showLoading(text, subtext, showProgress = false) {
         loadingText.textContent = text;
         loadingSubtext.textContent = subtext;
@@ -52,7 +51,6 @@
         progressBar.classList.remove('indeterminate');
     }
 
-    // Upload handlers
     uploadArea.addEventListener('click', () => fileInput.click());
     
     let dragCounter = 0;
@@ -91,7 +89,6 @@
         const file = fileInput.files[0];
         if (!file) return;
 
-        // Check file size
         const maxSize = 50 * 1024 * 1024; // 50MB
         if (file.size > maxSize) {
             showStatus(`File quá lớn: ${(file.size / 1024 / 1024).toFixed(1)}MB (tối đa 50MB)`, 'error');
@@ -104,7 +101,6 @@
         formData.append('file', file);
 
         try {
-            // Simulate progress for upload
             let progress = 0;
             const progressInterval = setInterval(() => {
                 progress += 10;
@@ -368,7 +364,6 @@
         showLoading(`Đang chuyển đổi sang ${formatLabel}...`, `${selectedColumns.length} cột, ${rangeText}`, true);
 
         try {
-            // Simulate progress
             let progress = 0;
             const progressInterval = setInterval(() => {
                 progress += 5;

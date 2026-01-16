@@ -1,5 +1,3 @@
-# app/auth.py
-
 from fastapi import HTTPException, Request, Depends
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -32,8 +30,6 @@ if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
     )
 
 
-# ---------- Helpers ----------
-
 def get_current_user(request: Request):
     user = request.session.get("user")
     if not user:
@@ -41,15 +37,12 @@ def get_current_user(request: Request):
     return user
 
 
-# ---------- Pages ----------
 TEMPLATES_DIR = BASE_DIR / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
-
-# ---------- Auth flows ----------
 
 async def login_google(request: Request):
     if not GOOGLE_CLIENT_ID:

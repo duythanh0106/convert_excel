@@ -42,7 +42,6 @@ app = FastAPI(
 
 templates = Jinja2Templates(directory="templates")
 
-# CORS middleware (nếu cần gọi API từ domain khác)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -55,7 +54,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY", "change-this-secret"),
     same_site="lax",
-    https_only=False,   # True nếu chạy HTTPS
+    https_only=False,  
 )
 
 # ===== AUTH ROUTES =====
@@ -89,7 +88,6 @@ app.add_api_route(
     include_in_schema=False,
 )
 
-# CONFIGURATION
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
 OUTPUT_FOLDER = os.getenv('OUTPUT_FOLDER', 'outputs')
 MAX_FILE_SIZE = int(os.getenv('MAX_FILE_SIZE', 50 * 1024 * 1024))
@@ -97,7 +95,6 @@ ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', '.xlsx').split(','))
 CLEANUP_HOURS = int(os.getenv('CLEANUP_HOURS', 24))
 
 
-# REQUEST MODELS
 class PreviewRequest(BaseModel):
     filename: str = Field(..., description="Tên file đã upload")
     sheet: str = Field(..., description="Tên sheet cần xem")
@@ -150,13 +147,11 @@ class ConvertRequest(BaseModel):
 
 
 def allowed_file(filename: str) -> bool:
-    """Kiểm tra file có được phép upload không"""
     ext = os.path.splitext(filename)[1].lower()
     return ext in ALLOWED_EXTENSIONS
 
 
 def cleanup_old_files(folder: str, max_age_hours: int = 24):
-    """Xóa file cũ hơn max_age_hours"""
     try:
         now = time.time()
         max_age_seconds = max_age_hours * 3600
@@ -173,7 +168,6 @@ def cleanup_old_files(folder: str, max_age_hours: int = 24):
 
 
 def schedule_cleanup():
-    """Chạy cleanup định kỳ mỗi giờ"""
     def run_cleanup():
         while True:
             cleanup_old_files(UPLOAD_FOLDER, max_age_hours=24)
@@ -185,8 +179,6 @@ def schedule_cleanup():
 
 
 def get_host_ip() -> str:
-    """Lấy IPv4 tốt nhất để máy khác trong LAN truy cập (hoặc localhost nếu không tìm được)."""
-
     def is_public_ipv4(ip: str) -> bool:
         try:
             a = ipaddress.ip_address(ip)
@@ -208,18 +200,15 @@ def get_host_ip() -> str:
         local_ip = s.getsockname()[0]
         s.close()
 
-        # local_ip thường là IP LAN (private) => vẫn hữu ích để truy cập trong mạng nội bộ
         if local_ip and local_ip != "127.0.0.1":
             return local_ip
     except Exception:
         pass
 
-    # 2) Duyệt các IPv4 từ getaddrinfo
     try:
         hostname = socket.gethostname()
         addrs = socket.getaddrinfo(hostname, None, socket.AF_INET)
 
-        # Ưu tiên public (nếu có)
         for addr in addrs:
             sockaddr = addr[4]
             if isinstance(sockaddr, tuple) and len(sockaddr) >= 1 and isinstance(sockaddr[0], str):
@@ -227,7 +216,6 @@ def get_host_ip() -> str:
                 if is_public_ipv4(ip):
                     return ip
 
-        # Nếu không có public, lấy IP IPv4 không loopback đầu tiên (LAN)
         for addr in addrs:
             sockaddr = addr[4]
             if isinstance(sockaddr, tuple) and len(sockaddr) >= 1 and isinstance(sockaddr[0], str):
@@ -251,8 +239,6 @@ async def index(request: Request):
 @app.post('/upload', tags=["Excel Processing"])
 async def upload_file(file: UploadFile = File(...)):
     """
-    📤 Upload file Excel và lấy danh sách sheets
-    
     **Parameters:**
     - **file**: File Excel (.xlsx tối đa 50MB)
     
@@ -266,7 +252,6 @@ async def upload_file(file: UploadFile = File(...)):
     - `500`: Lỗi server
     """
     try:
-        # Validate filename
         if not file.filename:
             raise HTTPException(400, 'Chưa chọn file')
         
@@ -285,7 +270,6 @@ async def upload_file(file: UploadFile = File(...)):
                 f'File quá lớn: {file_size / 1024 / 1024:.1f}MB (max 50MB)'
             )
         
-        # Tạo filename với timestamp để tránh trùng
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         name, ext = os.path.splitext(file.filename)
         clean_name = "".join(c for c in name if c.isalnum() or c in (' ', '-', '_'))
@@ -293,11 +277,9 @@ async def upload_file(file: UploadFile = File(...)):
         
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         
-        # Lưu file
         with open(filepath, 'wb') as f:
             f.write(contents)
         
-        # Lấy danh sách sheets
         sheets = get_sheet_names(filepath)
         
         if not sheets:
@@ -321,8 +303,6 @@ async def upload_file(file: UploadFile = File(...)):
 @app.post('/preview', tags=["Excel Processing"])
 async def preview_sheet(data: PreviewRequest):
     """
-    👁️ Xem trước dữ liệu của sheet
-    
     **Parameters:**
     - **filename**: Tên file đã upload
     - **sheet**: Tên sheet cần xem
@@ -353,8 +333,6 @@ async def preview_sheet(data: PreviewRequest):
 @app.post('/get-columns', tags=["Excel Processing"])
 async def get_columns(data: ColumnsRequest):
     """
-    📋 Lấy danh sách cột sau khi chọn dòng header
-    
     **Parameters:**
     - **filename**: Tên file đã upload
     - **sheet**: Tên sheet
@@ -389,9 +367,7 @@ async def get_columns(data: ColumnsRequest):
 
 @app.post('/convert', tags=["Conversion"])
 async def convert(data: ConvertRequest):
-    """
-    🔄 Chuyển đổi Excel sang DOCX
-    
+    """    
     **Parameters:**
     - **filename**: Tên file Excel đã upload
     - **sheet**: Tên sheet cần convert
@@ -413,7 +389,6 @@ async def convert(data: ConvertRequest):
     - `500`: Lỗi khi convert
     """
     try:
-        # Validation
         if data.data_start_row <= data.header_row:
             raise HTTPException(
                 400, 
@@ -435,7 +410,6 @@ async def convert(data: ConvertRequest):
         output_filename = f"output_{timestamp}.docx"
         output_path = os.path.join(OUTPUT_FOLDER, output_filename)
         
-        # Convert (blocking operation - có thể cải tiến thành async)
         row_count = convert_excel_to_docx(
             input_path, 
             output_path, 
@@ -465,9 +439,6 @@ async def convert(data: ConvertRequest):
 
 @app.post('/convert-markdown', tags=["Conversion"])
 async def convert_markdown(data: ConvertRequest):
-    """
-    🔄 Chuyển đổi Excel sang Markdown
-    """
     try:
         if data.data_start_row <= data.header_row:
             raise HTTPException(
@@ -520,10 +491,8 @@ async def convert_markdown(data: ConvertRequest):
 @app.get('/download/{filename}', tags=["Download"])
 async def download(filename: str):
     """
-    ⬇️ Download file DOCX đã convert
-    
     **Parameters:**
-    - **filename**: Tên file cần tải (vd: output_20240114_153045.docx)
+    - **filename**: Tên file cần tải
     
     **Returns:**
     - File DOCX
@@ -532,7 +501,6 @@ async def download(filename: str):
     - `404`: File không tồn tại
     """
     try:
-        # Security: chỉ cho phép tên file, không cho phép path
         filename = os.path.basename(filename)
         filepath = os.path.join(OUTPUT_FOLDER, filename)
         
@@ -560,9 +528,6 @@ async def download(filename: str):
 
 @app.get('/health', tags=["System"])
 async def health_check():
-    """
-    Health check endpoint
-    """
     return {
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
@@ -572,9 +537,6 @@ async def health_check():
 
 @app.get('/info', tags=["System"])
 async def info():
-    """
-    ℹThông tin hệ thống
-    """
     return {
         'app_name': 'Excel to DOCX Converter',
         'version': '2.0.0',
@@ -592,7 +554,6 @@ async def info():
 
 @app.on_event("startup")
 async def startup_event():
-    """Chạy khi app khởi động"""
     local_ip = get_host_ip()
     
     print("\n" + "="*70)
@@ -617,5 +578,4 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Chạy khi app tắt"""
     print("\nShutting down Excel to DOCX Converter...\n")

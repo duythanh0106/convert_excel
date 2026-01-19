@@ -10,9 +10,9 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
 
-OIDC_CLIENT_ID = os.getenv("OIDC_CLIENT_ID")
-OIDC_CLIENT_SECRET = os.getenv("OIDC_CLIENT_SECRET")
-OIDC_DISCOVERY_URL = os.getenv("OIDC_DISCOVERY_URL")
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID")
+KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")
+KEYCLOAK_DISCOVERY_URL = os.getenv("KEYCLOAK_DISCOVERY_URL")
 SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret")
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -29,6 +29,14 @@ if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
         client_kwargs={"scope": "openid email profile"},
     )
 
+if KEYCLOAK_CLIENT_ID and KEYCLOAK_CLIENT_SECRET and KEYCLOAK_DISCOVERY_URL:
+    oauth.register(
+        name="keycloak",
+        client_id=KEYCLOAK_CLIENT_ID,
+        client_secret=KEYCLOAK_CLIENT_SECRET,
+        server_metadata_url=KEYCLOAK_DISCOVERY_URL,
+        client_kwargs={"scope": "openid email profile"},
+    )
 
 def get_current_user(request: Request):
     user = request.session.get("user")
@@ -68,9 +76,35 @@ async def auth_callback_google(request: Request):
 
         return RedirectResponse(url="/")
 
-    except Exception:
+    except Exception as e:
+        print(f"Google auth error: {str(e)}")
         return RedirectResponse(url="/login?error=auth_failed")
 
+async def login_keycloak(request: Request):
+    if not KEYCLOAK_CLIENT_ID:
+        raise HTTPException(400, "Keycloak OIDC not configured")
+
+    redirect_uri = str(request.url_for("auth_callback_keycloak"))
+    return await oauth.keycloak.authorize_redirect(request, redirect_uri)
+
+async def auth_callback_keycloak(request: Request):
+    try:
+        token = await oauth.keycloak.authorize_access_token(request)
+        user_info = token.get("userinfo") or await oauth.keycloak.parse_id_token(request, token)
+
+        request.session["user"] = {
+            "sub": user_info["sub"],
+            "email": user_info.get("email"),
+            "name": user_info.get("name"),
+            "picture": user_info.get("picture"),
+            "access_token": token["access_token"],
+            "id_token": token.get("id_token"),
+        }
+
+        return RedirectResponse(url="/")
+
+    except Exception:
+        return RedirectResponse(url="/login?error=auth_failed")
 
 async def logout(request: Request):
     request.session.clear()

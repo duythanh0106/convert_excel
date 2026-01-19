@@ -15,6 +15,8 @@ from auth_oidc import (
     login_page,
     login_google,
     auth_callback_google,
+    login_keycloak,
+    auth_callback_keycloak,
     logout,
 )
 
@@ -79,6 +81,21 @@ app.add_api_route(
     methods=["GET"],
     include_in_schema=False,
     name="auth_callback_google",
+)
+
+app.add_api_route(
+    "/auth/login/keycloak",
+    login_keycloak,
+    methods=["GET"],
+    include_in_schema=False,
+)
+
+app.add_api_route(
+    "/auth/callback/keycloak",
+    auth_callback_keycloak,
+    methods=["GET"],
+    include_in_schema=False,
+    name="auth_callback_keycloak",
 )
 
 app.add_api_route(

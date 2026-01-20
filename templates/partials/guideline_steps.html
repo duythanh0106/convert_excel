@@ -1,0 +1,85 @@
+<div class="steps-container">
+    <div class="step active" id="guideline-step-1">
+        <div class="step-header">
+            <span class="step-number">1</span>
+            <h3>📁 Chọn File</h3>
+        </div>
+        <div class="step-content">
+            <div class="form-group">
+                <label for="guidelineFileInput">Chọn file để chuyển đổi:</label>
+                <input type="file" id="guidelineFileInput" />
+                <p class="info">Hỗ trợ: Excel, PDF, DOCX, PPTX, Images, Code, và nhiều định dạng khác</p>
+            </div>
+            <button class="btn btn-primary" onclick="handleGuidelineFileInput()">Tải file lên</button>
+        </div>
+    </div>
+
+    <div class="step" id="guideline-step-2">
+        <div class="step-header">
+            <span class="step-number">2</span>
+            <h3>📋 Chọn Loại Template</h3>
+        </div>
+        <div class="step-content">
+            <div class="template-selector">
+                <div class="template-card" onclick="selectTemplate('excel_list')">
+                    <h4>📊 Excel/CSV List</h4>
+                    <p>Template cho dữ liệu bảng Excel/CSV</p>
+                    <span class="template-sections">5 Mục: Nguồn | Tóm tắt | Chỉ số | Insights | Có cấu trúc</span>
+                </div>
+                <div class="template-card" onclick="selectTemplate('word_document')">
+                    <h4>📄 Word Document</h4>
+                    <p>Template cho tài liệu Word/Text</p>
+                    <span class="template-sections">5 Mục: Nguồn | Tóm tắt | Điểm chính | Tóm tắt chi tiết | Tối ưu</span>
+                </div>
+                <div class="template-card" onclick="selectTemplate('process')">
+                    <h4>⚙️ Process/SOP</h4>
+                    <p>Template cho quy trình/hướng dẫn</p>
+                    <span class="template-sections">5 Mục: Nguồn | Tóm tắt | Điểm chính | Các bước | Tối ưu</span>
+                </div>
+                <div class="template-card" onclick="selectTemplate('policy')">
+                    <h4>📋 Policy/Chính sách</h4>
+                    <p>Template cho chính sách/quy định</p>
+                    <span class="template-sections">5 Mục: Nguồn | Tóm tắt | Điểm chính | Phân tích | Tối ưu</span>
+                </div>
+            </div>
+            <button class="btn btn-secondary" onclick="goToStep('guideline-step-1')">Quay lại</button>
+            <button class="btn btn-primary" onclick="goToStep('guideline-step-3')" id="nextAfterTemplate">Tiếp theo</button>
+        </div>
+    </div>
+
+    <div class="step" id="guideline-step-3">
+        <div class="step-header">
+            <span class="step-number">3</span>
+            <h3>✨ Cấu hình Định Dạng Guideline</h3>
+        </div>
+        <div class="step-content">
+            <div class="checkbox-group">
+                <input type="checkbox" id="enableGuideline" checked />
+                <label for="enableGuideline">✓ Áp dụng định dạng Guideline UrBox</label>
+            </div>
+            <div id="guidelineOptions" class="guideline-options">
+                <p class="info">🎯 Guideline UrBox sẽ tự động:</p>
+                <ul>
+                    <li><strong>In đậm</strong> các Actor (Phòng ban, chức danh)</li>
+                    <li><strong>In đậm</strong> các Action (Hành động, Hoạt động)</li>
+                    <li><strong>In đậm</strong> các Object (Tài liệu, công cụ)</li>
+                    <li><strong>&gt; Quote</strong> các Identifier (ID, Email, URL, file path)</li>
+                    <li>Thay thế các <VARIABLE_NAME> bằng giá trị</li>
+                </ul>
+                
+                <div class="form-group" style="margin-top: 20px;">
+                    <label for="formatTextPreview">📝 Preview định dạng text:</label>
+                    <textarea id="formatTextPreview" placeholder="Nhập text để preview định dạng Guideline" rows="6"></textarea>
+                    <button class="btn btn-secondary" onclick="previewGuidelineFormatting()">👁️ Xem preview</button>
+                </div>
+                
+                <div id="formattingResult" class="hidden">
+                    <h4>Kết quả định dạng:</h4>
+                    <div id="formattingPreview" class="formatting-preview"></div>
+                </div>
+            </div>
+            <button class="btn btn-secondary" onclick="goToStep('guideline-step-2')">Quay lại</button>
+            <button class="btn btn-success" onclick="convertWithGuideline()">🚀 Chuyển đổi với Guideline</button>
+        </div>
+    </div>
+</div>

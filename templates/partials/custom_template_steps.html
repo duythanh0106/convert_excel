@@ -1,0 +1,82 @@
+<div class="steps-container">
+    <div class="step active" id="custom-step-1">
+        <div class="step-header">
+            <span class="step-number">1</span>
+            <h3>📁 Chọn File</h3>
+        </div>
+        <div class="step-content">
+            <div class="form-group">
+                <label for="customFileInput">Chọn file để chuyển đổi:</label>
+                <input type="file" id="customFileInput" />
+                <p class="info">Hỗ trợ: Excel, PDF, DOCX, PPTX, Images, Code, và nhiều định dạng khác</p>
+            </div>
+            <button class="btn btn-primary" onclick="handleCustomFileInput()">Tải file lên</button>
+        </div>
+    </div>
+
+    <div class="step" id="custom-step-2">
+        <div class="step-header">
+            <span class="step-number">2</span>
+            <h3>📝 Thiết lập Custom Template</h3>
+        </div>
+        <div class="step-content">
+            <div class="form-group">
+                <label for="predefinedTemplateSelect">📋 Sử dụng template sẵn có:</label>
+                <select id="predefinedTemplateSelect" onchange="loadPredefinedTemplate()">
+                    <option value="">-- Tạo mới từ đầu --</option>
+                    <option value="excel">Excel Data Template</option>
+                    <option value="document">Document Analysis Template</option>
+                    <option value="process">Process Documentation Template</option>
+                    <option value="policy">Policy Documentation Template</option>
+                </select>
+            </div>
+
+            <div class="divider" style="margin: 20px 0; text-align: center;">
+                <span>HOẶC</span>
+            </div>
+
+            <div class="form-group">
+                <label for="customTemplate">Dán custom template của bạn:</label>
+                <textarea id="customTemplate" placeholder="Paste template ở đây. Sử dụng {{VARIABLE_NAME}} cho biến động." rows="12"></textarea>
+                <p class="info" style="margin-top: 10px;">💡 Gợi ý: Sử dụng {{SECTION_A}}, {{SECTION_B}}, {{SECTION_C}}, {{SECTION_D}}, {{SECTION_E}} cho 5 mục</p>
+            </div>
+
+            <button class="btn btn-secondary" onclick="goToStep('custom-step-1')">Quay lại</button>
+            <button class="btn btn-primary" onclick="goToStep('custom-step-3')">Tiếp theo</button>
+        </div>
+    </div>
+
+    <div class="step" id="custom-step-3">
+        <div class="step-header">
+            <span class="step-number">3</span>
+            <h3>🔄 Injecting Biến & Định Dạng</h3>
+        </div>
+        <div class="step-content">
+            <div class="form-group">
+                <label for="variablesList">📌 Các biến trong template:</label>
+                <div id="variablesList" class="variables-list"></div>
+            </div>
+
+            <div class="variables-injection">
+                <h4>⚡ Nhập giá trị cho các biến:</h4>
+                <div id="variablesInputs"></div>
+            </div>
+
+            <div class="checkbox-group" style="margin-top: 20px;">
+                <input type="checkbox" id="applyGuidelineFormatting" checked />
+                <label for="applyGuidelineFormatting">✓ Áp dụng Guideline Formatting</label>
+            </div>
+
+            <div id="guidelineFormatOptions" class="hidden">
+                <p class="info">Guideline sẽ tự động:</p>
+                <ul>
+                    <li><strong>In đậm</strong> Actors, Actions, Objects</li>
+                    <li><strong>&gt; Quote</strong> Identifiers</li>
+                </ul>
+            </div>
+
+            <button class="btn btn-secondary" onclick="goToStep('custom-step-2')">Quay lại</button>
+            <button class="btn btn-success" onclick="convertWithCustomTemplate()">🚀 Chuyển đổi với Custom Template</button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,368 @@
+<script>
+    let currentMode = 'classic';
+    let currentFiles = {};
+    let currentTemplate = null;
+    let templateVariables = {};
+
+    // Switch conversion mode
+    function switchMode(mode) {
+        currentMode = mode;
+        
+        // Hide all mode sections
+        document.querySelectorAll('.mode-section').forEach(el => {
+            el.classList.remove('active');
+            el.classList.add('hidden');
+        });
+        
+        // Show selected mode
+        const modeId = mode + 'Mode';
+        const modeElement = document.getElementById(modeId);
+        if (modeElement) {
+            modeElement.classList.add('active');
+            modeElement.classList.remove('hidden');
+        }
+        
+        // Update sidebar visibility
+        document.getElementById('templateTypeGroup').classList.toggle('hidden', mode !== 'guideline');
+        document.getElementById('customTemplateGroup').classList.toggle('hidden', mode !== 'custom');
+    }
+
+    // Navigate between steps
+    function goToStep(stepId) {
+        document.querySelectorAll('.step').forEach(el => {
+            el.classList.remove('active');
+        });
+        const step = document.getElementById(stepId);
+        if (step) {
+            step.classList.add('active');
+        }
+    }
+
+    // File handling for Universal mode
+    function handleUniversalFileInput() {
+        const input = document.getElementById('universalFileInput');
+        const file = input.files[0];
+        if (!file) {
+            alert('Vui lòng chọn file');
+            return;
+        }
+        currentFiles.universal = file;
+        goToStep('universal-step-2');
+    }
+
+    // File handling for Guideline mode
+    function handleGuidelineFileInput() {
+        const input = document.getElementById('guidelineFileInput');
+        const file = input.files[0];
+        if (!file) {
+            alert('Vui lòng chọn file');
+            return;
+        }
+        currentFiles.guideline = file;
+        goToStep('guideline-step-2');
+    }
+
+    // File handling for Custom Template mode
+    function handleCustomFileInput() {
+        const input = document.getElementById('customFileInput');
+        const file = input.files[0];
+        if (!file) {
+            alert('Vui lòng chọn file');
+            return;
+        }
+        currentFiles.custom = file;
+        goToStep('custom-step-2');
+    }
+
+    // Select Guideline template
+    function selectTemplate(templateType, el) {
+        currentTemplate = templateType;
+        document.querySelectorAll('.template-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        el.classList.add('selected');
+    }
+
+    // Preview Guideline formatting
+    async function previewGuidelineFormatting() {
+        const text = document.getElementById('formatTextPreview').value;
+        if (!text) {
+            alert('Vui lòng nhập text để xem preview');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/v2/format-text-guideline', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: text
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Lỗi định dạng text');
+            }
+
+            const result = await response.json();
+            const preview = document.getElementById('formattingPreview');
+            preview.innerHTML = marked.parse(result.formatted_text);
+            document.getElementById('formattingResult').classList.remove('hidden');
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Lỗi: ' + error.message);
+        }
+    }
+
+    // Convert with Guideline template
+    async function convertWithGuideline() {
+        if (!currentFiles.guideline) {
+            alert('Vui lòng chọn file');
+            return;
+        }
+
+        if (!currentTemplate) {
+            alert('Vui lòng chọn loại template');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', currentFiles.guideline);
+        formData.append('template_type', currentTemplate);
+        formData.append('enable_guideline', document.getElementById('enableGuideline').checked);
+
+        showLoadingOverlay(true, `Đang chuyển đổi với Template ${currentTemplate}...`);
+
+        try {
+            const response = await fetch('/api/v2/convert-with-guideline', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Lỗi chuyển đổi');
+            }
+
+            const result = await response.json();
+            handleConversionSuccess(result);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Lỗi: ' + error.message);
+        } finally {
+            showLoadingOverlay(false);
+        }
+    }
+
+    // Load predefined template
+    async function loadPredefinedTemplate() {
+        const select = document.getElementById('customTemplateSelect');
+        const templateKey = select.value;
+
+        if (!templateKey) {
+            document.getElementById('customTemplate').value = '';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/v2/predefined-template?template_type=${templateKey}`);
+            if (!response.ok) {
+                throw new Error('Không thể tải template');
+            }
+
+            const result = await response.json();
+            document.getElementById('customTemplate').value = result.template;
+            extractVariablesFromTemplate(result.template);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Lỗi: ' + error.message);
+        }
+    }
+
+    // Extract variables from template
+    function extractVariablesFromTemplate(template) {
+        const variableRegex = /\{\{([A-Z_]+)\}\}/g;
+        const variables = new Set();
+        let match;
+
+        while ((match = variableRegex.exec(template)) !== null) {
+            variables.add(match[1]);
+        }
+
+        templateVariables = {};
+        variables.forEach(v => {
+            templateVariables[v] = '';
+        });
+
+        renderVariablesInputs();
+    }
+
+    // Render variable inputs
+    function renderVariablesInputs() {
+        const container = document.getElementById('variablesInputs');
+        container.innerHTML = '';
+
+        // Show variables list
+        const listContainer = document.getElementById('variablesList');
+        listContainer.innerHTML = '';
+        Object.keys(templateVariables).forEach(varName => {
+            const tag = document.createElement('span');
+            tag.className = 'variable-tag';
+            tag.textContent = '{{' + varName + '}}';
+            listContainer.appendChild(tag);
+        });
+
+        // Create input fields
+        Object.keys(templateVariables).forEach(varName => {
+            const group = document.createElement('div');
+            group.className = 'variable-input-group';
+            group.innerHTML = '<label for="var_' + varName + '">{{' + varName + '}}</label>' +
+                '<textarea id="var_' + varName + '" placeholder="Nhập giá trị cho ' + varName + '"></textarea>';
+            container.appendChild(group);
+        });
+    }
+
+    // Convert with Custom Template
+    async function convertWithCustomTemplate() {
+        if (!currentFiles.custom) {
+            alert('Vui lòng chọn file');
+            return;
+        }
+
+        const templateText = document.getElementById('customTemplate').value;
+        if (!templateText) {
+            alert('Vui lòng nhập hoặc chọn template');
+            return;
+        }
+
+        // Collect variable values
+        const variables = {};
+        Object.keys(templateVariables).forEach(varName => {
+            const input = document.getElementById('var_' + varName);
+            if (input) {
+                variables[varName] = input.value || '';
+            }
+        });
+
+        const formData = new FormData();
+        formData.append('file', currentFiles.custom);
+        formData.append('template', templateText);
+        formData.append('variables', JSON.stringify(variables));
+        formData.append('apply_guideline', document.getElementById('applyGuidelineFormatting').checked);
+
+        showLoadingOverlay(true, 'Đang chuyển đổi với Custom Template...');
+
+        try {
+            const response = await fetch('/api/v2/convert-with-custom-template', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Lỗi chuyển đổi');
+            }
+
+            const result = await response.json();
+            handleConversionSuccess(result);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Lỗi: ' + error.message);
+        } finally {
+            showLoadingOverlay(false);
+        }
+    }
+
+    // Universal conversion
+    async function convertUniversal() {
+        if (!currentFiles.universal) {
+            alert('Vui lòng chọn file');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', currentFiles.universal);
+        formData.append('output_format', document.getElementById('universalOutputFormat').value);
+        formData.append('preserve_formatting', document.getElementById('preserveFormatting').checked);
+        formData.append('extract_images', document.getElementById('extractImages').checked);
+
+        showLoadingOverlay(true, 'Đang chuyển đổi file...');
+
+        try {
+            const response = await fetch('/api/v2/convert', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Lỗi chuyển đổi');
+            }
+
+            const result = await response.json();
+            handleConversionSuccess(result);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Lỗi: ' + error.message);
+        } finally {
+            showLoadingOverlay(false);
+        }
+    }
+
+    // Handle conversion success
+    function handleConversionSuccess(result) {
+        const status = document.getElementById('conversionStatus');
+        status.className = 'status success';
+        status.innerHTML = `
+            <strong>✓ Chuyển đổi thành công!</strong><br/>
+            Tệp: ` + (result.output_file || 'output') + `<br/>
+            <a href="` + result.download_url + `" download class="btn btn-success" style="margin-top: 10px; display: inline-block;">
+                ⬇️ Tải xuống
+            </a>
+        `;
+    }
+
+    // Show loading overlay
+    function showLoadingOverlay(show, message = '') {
+        const overlay = document.getElementById('loadingOverlay');
+        if (show) {
+            if (message) {
+                document.querySelector('.loading-text').textContent = message;
+            }
+            overlay.classList.add('active');
+        } else {
+            overlay.classList.remove('active');
+        }
+    }
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', () => {
+        // Show classic mode by default
+        switchMode('classic');
+        
+        // Add event listener for checkbox visibility
+        const guidelineCheckbox = document.getElementById('enableGuideline');
+        if (guidelineCheckbox) {
+            guidelineCheckbox.addEventListener('change', () => {
+                const options = document.getElementById('guidelineOptions');
+                options.classList.toggle('hidden', !guidelineCheckbox.checked);
+            });
+        }
+
+        // Add event listener for custom template checkbox
+        const customFormatCheckbox = document.getElementById('applyGuidelineFormatting');
+        if (customFormatCheckbox) {
+            customFormatCheckbox.addEventListener('change', () => {
+                const options = document.getElementById('guidelineFormatOptions');
+                options.classList.toggle('hidden', !customFormatCheckbox.checked);
+            });
+        }
+
+        // Template text change listener
+        const templateTextarea = document.getElementById('customTemplate');
+        if (templateTextarea) {
+            templateTextarea.addEventListener('change', () => {
+                extractVariablesFromTemplate(templateTextarea.value);
+            });
+        }
+    });
+</script>

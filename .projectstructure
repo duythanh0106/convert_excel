@@ -1,0 +1,327 @@
+# 📁 Universal File Converter - Project Structure v3.0.0
+
+```
+convert_excel/
+├── 🎯 app/                              # Application Code
+│   ├── __init__.py                      # Package init
+│   ├── main.py                          # FastAPI app (31KB, 950+ lines)
+│   ├── excel_processor.py               # Excel handling (10KB)
+│   ├── universal_converter.py           # Markitdown integration (14KB)
+│   ├── markdown_formatter.py            # Guideline formatting (11KB)
+│   ├── template_processor.py            # Template system (11KB)
+│   └── auth_oidc.py                     # Authentication (3KB)
+│
+├── 📚 docs/                             # Documentation
+│   ├── README.md                        # Main readme
+│   ├── API_DOCUMENTATION.md             # API reference
+│   ├── GUIDELINE_SYSTEM.md              # Guideline rules
+│   ├── CONFIGURATION.md                 # Setup guide
+│   ├── QUICKSTART.md                    # Quick start
+│   ├── CHANGELOG.md                     # Version history
+│   ├── WEB_UI_README.md                 # UI guide
+│   ├── WEB_UI_UPDATE_SUMMARY.md         # UI changes
+│   ├── WEB_UI_IMPLEMENTATION_GUIDE.md   # UI implementation
+│   ├── WEB_UI_FILE_STRUCTURE.md         # UI structure
+│   ├── WEB_UI_COMPLETION_CHECKLIST.md   # UI checklist
+│   ├── WEB_UI_QUICK_REFERENCE.md        # UI quick ref
+│   ├── WEB_UI_FINAL_SUMMARY.md          # UI summary
+│   └── IMPLEMENTATION_SUMMARY.txt       # Implementation notes
+│
+├── ⚙️ config/                           # Configuration
+│   ├── requirements.txt                 # Python dependencies
+│   ├── .env                             # Environment variables
+│   └── .env.example                     # Example env
+│
+├── 📋 examples/                         # Examples & Utilities
+│   └── guideline_examples.py            # Guideline examples
+│
+├── 🎨 templates/                        # Frontend Templates
+│   ├── index.html                       # Main page
+│   ├── login.html                       # Login page
+│   ├── layouts/
+│   │   └── base.html                    # Base layout
+│   └── partials/
+│       ├── index_header.html
+│       ├── index_styles.html            # CSS (900+ lines)
+│       ├── index_scripts.html           # JS
+│       ├── index_steps.html             # Classic mode steps
+│       ├── index_status_and_download.html
+│       ├── index_loading_overlay.html
+│       ├── universal_steps.html         # Universal mode steps
+│       ├── guideline_steps.html         # Guideline mode steps
+│       ├── custom_template_steps.html   # Custom template steps
+│       ├── guideline_scripts.html       # Guideline JS (410+ lines)
+│       ├── login_body.html
+│       ├── login_styles.html
+│       └── login_scripts.html
+│
+├── 📂 outputs/                          # Conversion outputs
+│   └── .gitkeep                         # Folder marker
+│
+├── 📂 uploads/                          # Uploaded files
+│   └── .gitkeep                         # Folder marker
+│
+├── 📂 markitdown/                       # Markitdown library
+│   └── (submodule)
+│
+├── 🐳 docker-compose.yml                # Docker compose config
+├── 🐳 dockerfile                        # Docker image
+├── 📝 .dockerignore                     # Docker ignore
+│
+├── 🚀 main.py                           # ENTRY POINT (minimal)
+├── 📦 .gitignore                        # Git ignore
+└── 📋 .projectstructure                 # This file
+
+```
+
+---
+
+## 📊 File Organization
+
+### Core Application (`app/`)
+- **main.py** - FastAPI application with all routes (31KB)
+  - Health checks, authentication routes
+  - Excel converter endpoints (v1)
+  - Universal converter endpoints (v2)
+  - Guideline template endpoints (v2)
+  - Custom template endpoints (v2)
+
+- **excel_processor.py** - Specialized Excel handling
+  - Sheet detection and preview
+  - Data extraction
+  - DOCX/Markdown generation
+
+- **universal_converter.py** - Markitdown integration
+  - File type detection
+  - Conversion to Markdown
+  - Template-based conversion
+  - Batch processing
+
+- **markdown_formatter.py** - UrBox Guideline formatting
+  - Auto-bold Actors/Actions/Objects
+  - Quote Identifiers (IDs, emails, URLs)
+  - Variable replacement
+  - Entity extraction
+
+- **template_processor.py** - 5-section templates
+  - 4 template types (Excel, Document, Process, Policy)
+  - Template building with fluent API
+  - Variable injection
+  - Predefined templates
+
+- **auth_oidc.py** - Authentication
+  - Google OAuth integration
+  - Keycloak integration
+  - Session management
+
+### Documentation (`docs/`)
+- **README.md** - Main documentation (19KB)
+- **API_DOCUMENTATION.md** - API endpoints (10KB)
+- **GUIDELINE_SYSTEM.md** - Guideline rules (8KB)
+- **WEB_UI_README.md** - UI documentation (15KB)
+- Plus 7 more detailed guides (60KB total)
+
+### Configuration (`config/`)
+- **requirements.txt** - Python packages
+- **.env** - Environment variables
+- **.env.example** - Example configuration
+
+### Examples (`examples/`)
+- **guideline_examples.py** - 7 working examples
+
+### Frontend (`templates/`)
+- **index.html** - Main page (4-mode interface)
+- **login.html** - Login page
+- **CSS** - 900+ lines in index_styles.html
+- **JavaScript** - 410+ lines in guideline_scripts.html
+- **HTML partials** - 13 template files
+
+---
+
+## 🔄 Migration from Old Structure
+
+### Old Structure
+```
+root/
+├── main.py                 (950+ lines) ❌
+├── excel_processor.py      ❌
+├── universal_converter.py  ❌
+├── markdown_formatter.py   ❌
+├── template_processor.py   ❌
+├── auth_oidc.py           ❌
+├── guideline_examples.py  ❌
+├── API_DOCUMENTATION.md   ❌
+├── README.md              ❌
+└── 13 other files         ❌
+```
+
+### New Structure
+```
+root/
+├── app/                    ✅
+│   ├── main.py
+│   ├── excel_processor.py
+│   ├── universal_converter.py
+│   ├── markdown_formatter.py
+│   ├── template_processor.py
+│   └── auth_oidc.py
+│
+├── docs/                   ✅
+│   ├── API_DOCUMENTATION.md
+│   ├── README.md
+│   └── 11 other docs
+│
+├── config/                 ✅
+│   ├── requirements.txt
+│   ├── .env
+│   └── .env.example
+│
+├── examples/               ✅
+│   └── guideline_examples.py
+│
+├── templates/              ✅ (unchanged)
+├── outputs/                ✅ (unchanged)
+├── uploads/                ✅ (unchanged)
+├── markitdown/             ✅ (unchanged)
+│
+├── main.py                 ✅ (ENTRY POINT)
+├── docker-compose.yml      ✅
+├── dockerfile              ✅
+└── .gitignore              ✅
+```
+
+---
+
+## 🎯 Benefits of New Structure
+
+| Benefit | Before | After |
+|---------|--------|-------|
+| **Code Organization** | All in root | Grouped by purpose |
+| **Documentation** | Mixed with code | Separate docs/ |
+| **Configuration** | Scattered | Centralized config/ |
+| **Cleanliness** | 20+ files in root | Only essentials in root |
+| **Maintainability** | Hard to find things | Intuitive structure |
+| **Scalability** | Difficult to extend | Easy to add modules |
+| **Professional** | Messy | Clean & organized |
+
+---
+
+## 📝 How to Run
+
+### Start the server:
+```bash
+# From project root
+python main.py
+
+# Or with uvicorn directly
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Environment variables:
+Located in `config/.env`:
+```bash
+APP_HOST=0.0.0.0
+APP_PORT=8000
+APP_RELOAD=true
+SECRET_KEY=your-secret-key
+UPLOAD_FOLDER=uploads
+OUTPUT_FOLDER=outputs
+MAX_FILE_SIZE=52428800  # 50MB
+```
+
+---
+
+## 📦 Dependencies
+
+See `config/requirements.txt`:
+- fastapi==0.109.0
+- uvicorn==0.27.0
+- python-docx==1.0.2
+- pandas==2.3.3
+- openpyxl==3.1.5
+- markitdown==0.1.5b1
+- pydantic==2.5.0
+- python-multipart==0.0.6
+- (and more...)
+
+---
+
+## 🚀 Commands Reference
+
+```bash
+# Install dependencies
+pip install -r config/requirements.txt
+
+# Run the app
+python main.py
+
+# Run tests
+pytest examples/guideline_examples.py
+
+# Build Docker image
+docker build -t universal-converter .
+
+# Run with Docker
+docker-compose up
+
+# Check API
+curl http://localhost:8000/api/v2/info
+
+# View API docs
+# Swagger: http://localhost:8000/docs
+# ReDoc:   http://localhost:8000/redoc
+```
+
+---
+
+## 📚 Documentation Files
+
+### Quick Start
+- Start with `docs/README.md` (main guide)
+- Then `docs/QUICKSTART.md` (setup)
+
+### API Reference
+- `docs/API_DOCUMENTATION.md` (all endpoints)
+- `docs/CONFIGURATION.md` (environment setup)
+
+### Guideline System
+- `docs/GUIDELINE_SYSTEM.md` (formatting rules)
+- `examples/guideline_examples.py` (working examples)
+
+### Web UI
+- `docs/WEB_UI_README.md` (UI guide)
+- `docs/WEB_UI_IMPLEMENTATION_GUIDE.md` (how it works)
+
+### Changes
+- `docs/CHANGELOG.md` (version history)
+- `docs/WEB_UI_UPDATE_SUMMARY.md` (recent changes)
+
+---
+
+## ✅ Status
+
+- ✅ Code organized into `app/`
+- ✅ Documentation consolidated in `docs/`
+- ✅ Configuration centralized in `config/`
+- ✅ Examples organized in `examples/`
+- ✅ Templates unchanged in `templates/`
+- ✅ Entry point simplified in root `main.py`
+- ✅ All imports updated for new structure
+- ✅ Ready for production
+
+---
+
+## 📞 Support
+
+For issues or questions:
+1. Check relevant documentation in `docs/`
+2. Review examples in `examples/`
+3. Check API docs at `/docs` when server is running
+4. Review code comments in `app/`
+
+---
+
+**Last Updated:** January 2026
+**Version:** 3.0.0
+**Status:** Production Ready ✅
+

@@ -1,4 +1,5 @@
 <script>
+    document.addEventListener('DOMContentLoaded', () => {
     let currentFilename = '';
     let currentSheet = '';
     let selectedColumns = [];
@@ -425,4 +426,5 @@
     function reset() {
         location.reload();
     }
+    }); // Close DOMContentLoaded
 </script>

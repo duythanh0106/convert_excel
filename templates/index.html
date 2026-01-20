@@ -1,5 +1,5 @@
 {% extends "layouts/base.html" %}
-{% block title %}Excel to DOCX Converter{% endblock %}
+{% block title %}Universal File Converter - Guideline Template System{% endblock %}
 {% block styles %}
 {% include "partials/index_styles.html" %}
 {% endblock %}
@@ -8,30 +8,93 @@
 
 <div class="page-layout">
     <aside class="card sidebar-card">
-        <h2>Định dạng</h2>
+        <h2>🔧 Chế Độ Chuyển Đổi</h2>
+        
         <div class="sidebar-group">
-            <label for="sourceFormatSelect">Định dạng gốc</label>
-            <select id="sourceFormatSelect">
-                <option value="excel">Excel</option>
-                <option value="docx" disabled>DOCX (Chưa cập nhật)</option>
-                <option value="ppt" disabled>PPT (Chưa cập nhật)</option>
+            <label for="conversionMode">Chọn chế độ:</label>
+            <select id="conversionMode" onchange="switchMode(this.value)">
+                <option value="classic">📊 Excel Classic (DOCX)</option>
+                <option value="universal">🌍 Universal (Markdown)</option>
+                <option value="guideline">📋 Guideline Template</option>
+                <option value="custom">🎨 Custom Template</option>
             </select>
         </div>
+
         <div class="sidebar-group">
-            <label for="targetFormatSelect">Định dạng đích</label>
-            <select id="targetFormatSelect">
+            <label for="sourceFormatSelect">📁 Định dạng gốc</label>
+            <select id="sourceFormatSelect">
+                <option value="excel">Excel (.xlsx)</option>
+                <option value="pdf">PDF</option>
                 <option value="docx">DOCX</option>
-                <option value="markdown" disabled>Markdown (Đang cập nhật)</option>
+                <option value="pptx">PPTX</option>
+                <option value="image">Image (PNG, JPG)</option>
+                <option value="code">Code (PY, R, JS)</option>
+                <option value="notebook">Jupyter Notebook</option>
+                <option value="other">Khác</option>
+            </select>
+        </div>
+
+        <div class="sidebar-group">
+            <label for="targetFormatSelect">📄 Định dạng đích</label>
+            <select id="targetFormatSelect">
+                <option value="docx">DOCX (Word)</option>
+                <option value="markdown">Markdown (MD)</option>
+            </select>
+        </div>
+
+        <!-- Template Type (Guideline Mode Only) -->
+        <div class="sidebar-group hidden" id="templateTypeGroup">
+            <label for="templateType">📋 Loại Template:</label>
+            <select id="templateType">
+                <option value="excel_list">Excel/CSV List</option>
+                <option value="word_document">Word Document</option>
+                <option value="process">Process/SOP</option>
+                <option value="policy">Policy/Chính sách</option>
+            </select>
+        </div>
+
+        <!-- Custom Template (Custom Mode Only) -->
+        <div class="sidebar-group hidden" id="customTemplateGroup">
+            <label for="customTemplateSelect">📝 Sẵn có template:</label>
+            <select id="customTemplateSelect" onchange="loadPredefinedTemplate()">
+                <option value="">-- Tạo mới --</option>
+                <option value="excel">Excel Template</option>
+                <option value="document">Document Template</option>
+                <option value="process">Process Template</option>
+                <option value="policy">Policy Template</option>
             </select>
         </div>
     </aside>
+
     <main class="card main-card">
         {% include "partials/index_header.html" %}
-        {% include "partials/index_steps.html" %}
+        
+        <!-- Classic Mode -->
+        <div id="classicMode" class="mode-section">
+            {% include "partials/index_steps.html" %}
+        </div>
+
+        <!-- Universal Mode -->
+        <div id="universalMode" class="mode-section hidden">
+            {% include "partials/universal_steps.html" %}
+        </div>
+
+        <!-- Guideline Template Mode -->
+        <div id="guidelineMode" class="mode-section hidden">
+            {% include "partials/guideline_steps.html" %}
+        </div>
+
+        <!-- Custom Template Mode -->
+        <div id="customMode" class="mode-section hidden">
+            {% include "partials/custom_template_steps.html" %}
+        </div>
+
         {% include "partials/index_status_and_download.html" %}
     </main>
 </div>
+
 {% endblock %}
 {% block scripts %}
 {% include "partials/index_scripts.html" %}
+{% include "partials/guideline_scripts.html" %}
 {% endblock %}

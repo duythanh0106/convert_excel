@@ -57,22 +57,26 @@
         display: flex;
         flex-direction: column;
         gap: 15px;
+        align-items: center;
     }
     
     .auth-btn {
         width: 100%;
-        padding: 15px;
+        max-width: 280px; /* Giảm max-width để tránh tràn */
+        padding: 12px 15px; /* Giảm padding để tiết kiệm không gian */
         border: none;
         border-radius: 10px;
-        font-size: 15px;
+        font-size: 14px; /* Giảm font-size để text ngắn hơn */
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
+        gap: 8px; /* Giảm gap */
         text-decoration: none;
+        word-break: break-word; /* Cho phép break word nếu cần */
+        white-space: normal; /* Cho phép wrap text */
     }
     
     .auth-btn.primary {
@@ -85,13 +89,28 @@
         box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
     }
     
-
-    .google-icon {
-        width: 20px;
-        height: 20px;
+    .auth-btn.secondary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
     }
     
-
+    .auth-btn.secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0, 123, 255, 0.4);
+    }
+    
+    .google-icon {
+        width: 18px; /* Giảm size icon */
+        height: 18px;
+        flex-shrink: 0;
+    }
+    
+    .keycloak-icon {
+        width: 18px; /* Giảm size icon */
+        height: 18px;
+        flex-shrink: 0;
+    }
+    
     .alert {
         padding: 12px 15px;
         border-radius: 8px;
@@ -99,6 +118,7 @@
         font-size: 14px;
         display: none;
         animation: slideIn 0.3s ease;
+        text-align: center;
     }
     
     @keyframes slideIn {

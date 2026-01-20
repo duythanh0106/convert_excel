@@ -113,11 +113,12 @@ class MarkItDown:
         self._magika = magika.Magika()
 
         # TODO - remove these (see enable_builtins)
-        self._llm_client: Any = None
-        self._llm_model: Union[str | None] = None
-        self._llm_prompt: Union[str | None] = None
-        self._exiftool_path: Union[str | None] = None
-        self._style_map: Union[str | None] = None
+        self._llm_client: Any | None = None
+        self._llm_model: str | None = None
+        self._llm_prompt: str | None = None
+        self._exittool_path: str | None = None
+        self._style_map: str | None = None
+
 
         # Register the converters
         self._converters: List[ConverterRegistration] = []
@@ -485,9 +486,10 @@ class MarkItDown:
             m = re.search(r"filename=([^;]+)", response.headers["content-disposition"])
             if m:
                 filename = m.group(1).strip("\"'")
-                _, _extension = os.path.splitext(filename)
-                if len(_extension) > 0:
-                    extension = _extension
+                if filename is not None:
+                    _, _extension = os.path.splitext(filename)
+                    if len(_extension) > 0:
+                        extension = _extension
 
         # If there is still no filename, try to read it from the url
         if filename is None:

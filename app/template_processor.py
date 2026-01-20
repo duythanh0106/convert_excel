@@ -28,9 +28,10 @@ class GuidelineTemplate:
         self,
         source_url: Optional[str] = None,
         summary: str = "",
-        metrics: Dict[str, Any] = None,
+        metrics: Optional[Dict[str, Any]] = None,
         insights: str = "",
-        structured_content: str = ""
+        structured_content: str = "",
+        content: str = ""
     ) -> str:
         """
         Xây dựng template cho file Excel/CSV theo 5 phần
@@ -44,31 +45,28 @@ class GuidelineTemplate:
         
         result = []
         
-        # A. Tài liệu gốc
         if source_url:
             result.append("## A. Tài Liệu Gốc\n")
             result.append(f"**Nguồn:** {source_url}\n")
         
-        # B. Summary Overview
         if summary:
             result.append("## B. Summary Overview\n")
             formatted_summary = self.formatter.format_text(summary)
             result.append(f"{formatted_summary}\n")
         
-        # C. Key Metrics
         if metrics:
             result.append("## C. Key Metrics\n")
             for key, value in metrics.items():
                 result.append(f"- **{key}:** {value}")
             result.append("")
         
-        # D. Insights
         if insights:
             result.append("## D. Insights\n")
             formatted_insights = self.formatter.format_text(insights)
             result.append(f"{formatted_insights}\n")
         
-        # E. Structured Output
+        if not structured_content and content:
+            structured_content = content
         if structured_content:
             result.append("## E. Structured Output\n")
             formatted_content = self.formatter.format_text(structured_content)
@@ -80,7 +78,7 @@ class GuidelineTemplate:
         self,
         source_url: Optional[str] = None,
         summary: str = "",
-        key_points: List[str] = None,
+        key_points: Optional[List[str]] = None,
         deep_summary: str = "",
         content: str = ""
     ) -> str:
@@ -96,18 +94,15 @@ class GuidelineTemplate:
         
         result = []
         
-        # A. Tài liệu gốc
         if source_url:
             result.append("## A. Tài Liệu Gốc\n")
             result.append(f"**Nguồn:** {source_url}\n")
         
-        # B. Summary Overview
         if summary:
             result.append("## B. Summary Overview\n")
             formatted_summary = self.formatter.format_text(summary)
             result.append(f"{formatted_summary}\n")
         
-        # C. Key Points
         if key_points:
             result.append("## C. Key Points\n")
             for point in key_points:
@@ -115,13 +110,11 @@ class GuidelineTemplate:
                 result.append(f"- {formatted_point}")
             result.append("")
         
-        # D. Deep Summary
         if deep_summary:
             result.append("## D. Deep Summary\n")
             formatted_deep = self.formatter.format_text(deep_summary)
             result.append(f"{formatted_deep}\n")
         
-        # E. Readability Optimized
         if content:
             result.append("## E. Readability Optimized\n")
             formatted_content = self.formatter.format_text(content)
@@ -133,8 +126,8 @@ class GuidelineTemplate:
         self,
         source_url: Optional[str] = None,
         summary: str = "",
-        key_points: List[str] = None,
-        steps: List[Dict[str, Any]] = None,
+        key_points: Optional[List[str]] = None,
+        steps: Optional[List[Dict[str, Any]]] = None,
         content: str = ""
     ) -> str:
         """
@@ -149,18 +142,15 @@ class GuidelineTemplate:
         
         result = []
         
-        # A. Tài liệu gốc
         if source_url:
             result.append("## A. Tài Liệu Gốc\n")
             result.append(f"**Nguồn:** {source_url}\n")
         
-        # B. Summary
         if summary:
             result.append("## B. Summary Overview\n")
             formatted_summary = self.formatter.format_text(summary)
             result.append(f"{formatted_summary}\n")
         
-        # C. Key Points
         if key_points:
             result.append("## C. Key Points\n")
             for point in key_points:
@@ -168,7 +158,6 @@ class GuidelineTemplate:
                 result.append(f"- {formatted_point}")
             result.append("")
         
-        # D. Chi tiết Quy trình
         if steps:
             result.append("## D. Chi Tiết Quy Trình\n")
             for step in steps:
@@ -186,7 +175,6 @@ class GuidelineTemplate:
                 
                 result.append("")
         
-        # E. Full content
         if content:
             result.append("## E. Readability Optimized\n")
             formatted_content = self.formatter.format_text(content)
@@ -196,7 +184,6 @@ class GuidelineTemplate:
 
 
 class TemplateVariableInjector:
-    """Inject biến vào template"""
     
     def __init__(self):
         self.variable_pattern = r'<([A-Z_]+)>'
@@ -233,55 +220,44 @@ class TemplateVariableInjector:
 
 
 class TemplateBuilder:
-    """Builder pattern cho template tạo dễ dàng"""
-    
     def __init__(self, template_type: TemplateType = TemplateType.EXCEL_LIST):
         self.template_type = template_type
         self.template = GuidelineTemplate(template_type)
         self.data = {}
     
     def set_source(self, url: str) -> 'TemplateBuilder':
-        """Set nguồn tài liệu"""
         self.data['source_url'] = url
         return self
     
     def set_summary(self, summary: str) -> 'TemplateBuilder':
-        """Set summary"""
         self.data['summary'] = summary
         return self
     
     def set_metrics(self, metrics: Dict[str, Any]) -> 'TemplateBuilder':
-        """Set metrics (cho Excel)"""
         self.data['metrics'] = metrics
         return self
     
     def set_key_points(self, points: List[str]) -> 'TemplateBuilder':
-        """Set key points (cho Document)"""
         self.data['key_points'] = points
         return self
     
     def set_insights(self, insights: str) -> 'TemplateBuilder':
-        """Set insights"""
         self.data['insights'] = insights
         return self
     
     def set_deep_summary(self, deep_summary: str) -> 'TemplateBuilder':
-        """Set deep summary (cho Document)"""
         self.data['deep_summary'] = deep_summary
         return self
     
     def set_steps(self, steps: List[Dict[str, Any]]) -> 'TemplateBuilder':
-        """Set steps (cho Process)"""
         self.data['steps'] = steps
         return self
     
     def set_content(self, content: str) -> 'TemplateBuilder':
-        """Set content chính"""
         self.data['content'] = content
         return self
     
     def build(self) -> str:
-        """Build template cuối cùng"""
         if self.template_type == TemplateType.EXCEL_LIST:
             return self.template.build_excel_template(**self.data)
         elif self.template_type == TemplateType.WORD_DOCUMENT:
@@ -292,13 +268,9 @@ class TemplateBuilder:
             return self.template.build_excel_template(**self.data)
 
 
-# Predefined templates
 class PredefinedTemplates:
-    """Các template định sẵn"""
-    
     @staticmethod
     def get_excel_template() -> str:
-        """Template cho file Excel/CSV"""
         return """## A. Tài Liệu Gốc
 
 **Nguồn:** <SOURCE_URL>
@@ -330,7 +302,6 @@ class PredefinedTemplates:
     
     @staticmethod
     def get_document_template() -> str:
-        """Template cho file Word/Document"""
         return """## A. Tài Liệu Gốc
 
 **Nguồn:** <SOURCE_URL>
@@ -362,7 +333,6 @@ class PredefinedTemplates:
     
     @staticmethod
     def get_process_template() -> str:
-        """Template cho quy trình/SOP"""
         return """## A. Tài Liệu Gốc
 
 **Nguồn:** <SOURCE_URL>
@@ -394,7 +364,6 @@ class PredefinedTemplates:
     
     @staticmethod
     def get_policy_template() -> str:
-        """Template cho chính sách"""
         return """## A. Tài Liệu Gốc
 
 **Nguồn:** <SOURCE_URL>

@@ -4,6 +4,7 @@ import tempfile
 from docx import Document
 from docx.shared import Pt
 from openpyxl import load_workbook
+from typing import Optional
 
 class ExcelProcessorError(Exception):
     pass
@@ -347,3 +348,99 @@ def convert_excel_to_markdown(
     finally:
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
+
+
+class ClassicExcelProcessor:
+    def get_sheet_names(self, file_path: str) -> list[str]:
+        return get_sheet_names(file_path)
+
+    def preview_sheet_data(self, file_path: str, sheet_name: str, num_rows: int = 20) -> dict:
+        return preview_sheet_data(file_path, sheet_name, num_rows)
+
+    def get_column_headers(self, file_path: str, sheet_name: str, header_row: int) -> list[str]:
+        return get_column_headers(file_path, sheet_name, header_row)
+
+    def convert_excel_to_docx(
+        self,
+        excel_file_path: str,
+        output_docx_path: str,
+        sheet_name: str,
+        selected_columns: list[str],
+        header_row: int,
+        data_start_row: int,
+        data_end_row: int | None = None,
+    ) -> int:
+        return convert_excel_to_docx(
+            excel_file_path,
+            output_docx_path,
+            sheet_name,
+            selected_columns,
+            header_row,
+            data_start_row,
+            data_end_row,
+        )
+
+    def convert_excel_to_markdown(
+        self,
+        excel_file_path: str,
+        output_md_path: str,
+        sheet_name: str,
+        selected_columns: list[str],
+        header_row: int,
+        data_start_row: int,
+        data_end_row: int | None = None,
+    ) -> int:
+        return convert_excel_to_markdown(
+            excel_file_path,
+            output_md_path,
+            sheet_name,
+            selected_columns,
+            header_row,
+            data_start_row,
+            data_end_row,
+        )
+
+
+class UniversalFileProcessor:
+    def __init__(self, max_file_size: int = 100 * 1024 * 1024) -> None:
+        self.max_file_size = max_file_size
+        self._converter = None
+        self._converter_error: Optional[Exception] = None
+        try:
+            from markitdown import MarkItDown
+            self._converter = MarkItDown()
+        except Exception as exc:
+            self._converter_error = exc
+
+    def validate_file(self, file_path: str) -> None:
+        validate_file_exists(file_path)
+        file_size = os.path.getsize(file_path)
+        if file_size > self.max_file_size:
+            size_mb = file_size / (1024 * 1024)
+            max_mb = self.max_file_size / (1024 * 1024)
+            raise ExcelProcessorError(
+                f"File quá lớn ({size_mb:.2f}MB). Tối đa: {max_mb:.0f}MB"
+            )
+
+    def convert_to_markdown(self, file_path: str, output_path: Optional[str] = None) -> str:
+        if self._converter is None:
+            detail = str(self._converter_error) if self._converter_error else "markitdown"
+            raise ExcelProcessorError(f"Chưa cài markitdown: {detail}")
+
+        self.validate_file(file_path)
+        try:
+            result = self._converter.convert(file_path)
+            markdown_text = getattr(result, "text_content", None)
+            if markdown_text is None:
+                markdown_text = str(result)
+
+            if output_path:
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write(markdown_text)
+
+            return markdown_text
+        except ExcelProcessorError:
+            raise
+        except Exception as e:
+            raise ExcelProcessorError(f"Lỗi khi convert sang Markdown: {str(e)}")

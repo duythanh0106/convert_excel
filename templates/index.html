@@ -5,93 +5,116 @@
 {% endblock %}
 {% block body %}
 {% include "partials/index_loading_overlay.html" %}
+{% include "partials/settings_menu.html" %}
 
-<div class="page-layout">
-    <aside class="card sidebar-card">
-        <h2>🔧 Chế Độ Chuyển Đổi</h2>
-        
-        <div class="sidebar-group">
-            <label for="conversionMode">Chọn chế độ:</label>
-            <select id="conversionMode" onchange="switchMode(this.value)">
-                <option value="classic">📊 Excel Classic (DOCX)</option>
-                <option value="universal">🌍 Universal (Markdown)</option>
-                <option value="guideline">📋 Guideline Template</option>
-                <option value="custom">🎨 Custom Template</option>
-            </select>
+<section class="flow-screen active" id="homeScreen">
+    <div class="flow-container">
+        <div class="home-hero">
+            <h1>Chọn luồng làm việc</h1>
         </div>
-
-        <div class="sidebar-group">
-            <label for="sourceFormatSelect">📁 Định dạng gốc</label>
-            <select id="sourceFormatSelect">
-                <option value="excel">Excel (.xlsx)</option>
-                <option value="pdf">PDF</option>
-                <option value="docx">DOCX</option>
-                <option value="pptx">PPTX</option>
-                <option value="image">Image (PNG, JPG)</option>
-                <option value="code">Code (PY, R, JS)</option>
-                <option value="notebook">Jupyter Notebook</option>
-                <option value="other">Khác</option>
-            </select>
+        <div class="flow-grid">
+            <button class="nav-card" type="button" onclick="openModeSelect()">
+                <div class="card-body">
+                    <h3>Convert Format</h3>
+                    <p>Chuyển đổi định dạng file theo nhu cầu.</p>
+                </div>
+                <span class="card-cta">Bắt đầu</span>
+            </button>
+            <button class="nav-card" type="button" onclick="openGuidelineAi('guideline')">
+                <div class="card-body">
+                    <h3>Guideline AI</h3>
+                    <p>Chuẩn hóa nội dung theo guideline UrBox.</p>
+                </div>
+                <span class="card-cta">Bắt đầu</span>
+            </button>
         </div>
+    </div>
+</section>
 
-        <div class="sidebar-group">
-            <label for="targetFormatSelect">📄 Định dạng đích</label>
-            <select id="targetFormatSelect">
-                <option value="docx">DOCX (Word)</option>
-                <option value="markdown">Markdown (MD)</option>
-            </select>
+<section class="flow-screen hidden" id="modeSelectScreen">
+    <div class="flow-container">
+        <div class="flow-header">
+            <button class="back-button" type="button" onclick="openHome()">← Trang chính</button>
+            <div>
+                <h2>Chọn chế độ chuyển đổi</h2>
+            </div>
         </div>
-
-        <!-- Template Type (Guideline Mode Only) -->
-        <div class="sidebar-group hidden" id="templateTypeGroup">
-            <label for="templateType">📋 Loại Template:</label>
-            <select id="templateType">
-                <option value="excel_list">Excel/CSV List</option>
-                <option value="word_document">Word Document</option>
-                <option value="process">Process/SOP</option>
-                <option value="policy">Policy/Chính sách</option>
-            </select>
+        <div class="flow-grid">
+            <button class="nav-card" type="button" onclick="openConvertFlow('classic')">
+                <div class="card-body">
+                    <h3>Excel Classic</h3>
+                    <p>Chuyển đổi Excel theo từng bước chi tiết.</p>
+                </div>
+                <span class="card-cta">Chọn</span>
+            </button>
+            <button class="nav-card" type="button" onclick="openConvertFlow('universal')">
+                <div class="card-body">
+                    <h3>Universal</h3>
+                    <p>Chuyển nhiều định dạng sang Markdown nhanh.</p>
+                </div>
+                <span class="card-cta">Chọn</span>
+            </button>
         </div>
+    </div>
+</section>
 
-        <!-- Custom Template (Custom Mode Only) -->
-        <div class="sidebar-group hidden" id="customTemplateGroup">
-            <label for="customTemplateSelect">📝 Sẵn có template:</label>
-            <select id="customTemplateSelect" onchange="loadPredefinedTemplate()">
-                <option value="">-- Tạo mới --</option>
-                <option value="excel">Excel Template</option>
-                <option value="document">Document Template</option>
-                <option value="process">Process Template</option>
-                <option value="policy">Policy Template</option>
-            </select>
+<section class="flow-screen hidden" id="convertScreen">
+    <div class="flow-container flow-wide">
+        <div class="flow-header">
+            <button class="back-button" type="button" onclick="openModeSelect()">← Chọn lại chế độ</button>
+            <div>
+                <h2 id="convertFlowTitle">Convert Format</h2>
+                <p id="convertFlowSubtitle">Chọn một chế độ để tiếp tục.</p>
+            </div>
         </div>
-    </aside>
+        <div class="page-layout">
+            <aside class="card sidebar-card">
+                <h2>🔧 Convert Format</h2>
+                <div class="sidebar-group">
+                    <span class="sidebar-label">Chế độ đang chọn</span>
+                    <div class="mode-pill" id="activeModeLabel">Excel Classic</div>
+                    <p class="mode-desc" id="activeModeDesc">Tối ưu cho Excel và DOCX.</p>
+                    <button class="btn btn-secondary" type="button" onclick="openModeSelect()">Đổi chế độ</button>
+                </div>
+            </aside>
 
-    <main class="card main-card">
-        {% include "partials/index_header.html" %}
-        
-        <!-- Classic Mode -->
-        <div id="classicMode" class="mode-section">
-            {% include "partials/index_steps.html" %}
+            <main class="card main-card">
+                {% include "partials/index_header.html" %}
+                
+                <div id="classicMode" class="mode-section">
+                    {% include "partials/index_steps.html" %}
+                </div>
+
+                <div id="universalMode" class="mode-section hidden">
+                    {% include "partials/universal_steps.html" %}
+                </div>
+
+                {% include "partials/index_status_and_download.html" %}
+            </main>
         </div>
+    </div>
+</section>
 
-        <!-- Universal Mode -->
-        <div id="universalMode" class="mode-section hidden">
-            {% include "partials/universal_steps.html" %}
+<section class="flow-screen hidden" id="guidelineScreen">
+    <div class="flow-container flow-wide">
+        <div class="flow-header">
+            <button class="back-button" type="button" onclick="openHome()">← Trang chính</button>
+            <div>
+                <h2>Guideline AI</h2>
+            </div>
         </div>
+        <div class="card main-card guideline-card">
+            <div class="guideline-hero">
+                <h3>Guideline Template</h3>
+                <p>Luồng này giúp chuẩn hóa nội dung theo guideline UrBox.</p>
+            </div>
 
-        <!-- Guideline Template Mode -->
-        <div id="guidelineMode" class="mode-section hidden">
-            {% include "partials/guideline_steps.html" %}
+            <div id="guidelineMode" class="mode-section active">
+                {% include "partials/guideline_steps.html" %}
+            </div>
         </div>
-
-        <!-- Custom Template Mode -->
-        <div id="customMode" class="mode-section hidden">
-            {% include "partials/custom_template_steps.html" %}
-        </div>
-
-        {% include "partials/index_status_and_download.html" %}
-    </main>
-</div>
+    </div>
+</section>
 
 {% endblock %}
 {% block scripts %}

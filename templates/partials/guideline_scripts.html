@@ -4,30 +4,126 @@
     let currentTemplate = null;
     let templateVariables = {};
 
-    // Switch conversion mode
+    const modeCopy = {
+        classic: {
+            label: 'Excel Classic',
+            desc: 'Tối ưu cho Excel → DOCX.',
+            title: 'Excel Classic',
+            subtitle: 'Chuyển đổi Excel theo từng bước chi tiết.',
+            showSource: true,
+            showTarget: true
+        },
+        universal: {
+            label: 'Universal',
+            desc: 'Chuyển nhiều định dạng sang Markdown nhanh.',
+            title: 'Universal',
+            subtitle: 'Chuyển file bất kỳ định dạng sang Markdown.',
+            showSource: false,
+            showTarget: false
+        }
+    };
+
+    function setActiveScreen(screenId) {
+        const screens = ['homeScreen', 'modeSelectScreen', 'convertScreen', 'guidelineScreen'];
+        screens.forEach(id => {
+            const screen = document.getElementById(id);
+            if (!screen) {
+                return;
+            }
+            const isActive = id === screenId;
+            screen.classList.toggle('active', isActive);
+            screen.classList.toggle('hidden', !isActive);
+        });
+    }
+
+    function openHome() {
+        setActiveScreen('homeScreen');
+    }
+
+    function openModeSelect() {
+        setActiveScreen('modeSelectScreen');
+    }
+
+    function openConvertFlow(mode) {
+        setActiveScreen('convertScreen');
+        switchMode(mode);
+    }
+
+    function openGuidelineAi(tab = 'guideline') {
+        setActiveScreen('guidelineScreen');
+        const isGuideline = tab !== 'custom';
+        const guidelineMode = document.getElementById('guidelineMode');
+        const guidelineTab = document.getElementById('guidelineTabButton');
+
+        if (guidelineMode) {
+            guidelineMode.classList.add('active');
+            guidelineMode.classList.remove('hidden');
+        }
+        if (guidelineTab) {
+            guidelineTab.classList.add('active');
+        }
+    }
+
+    function updateConvertLabels(mode) {
+        const copy = modeCopy[mode] || modeCopy.classic;
+        const label = document.getElementById('activeModeLabel');
+        const desc = document.getElementById('activeModeDesc');
+        const flowTitle = document.getElementById('convertFlowTitle');
+        const flowSubtitle = document.getElementById('convertFlowSubtitle');
+        const headerTitle = document.getElementById('convertTitle');
+        const headerSubtitle = document.getElementById('convertSubtitle');
+        const sourceGroup = document.getElementById('sourceFormatGroup');
+        const targetGroup = document.getElementById('targetFormatGroup');
+
+        if (label) {
+            label.textContent = copy.label;
+        }
+        if (desc) {
+            desc.textContent = copy.desc;
+        }
+        if (flowTitle) {
+            flowTitle.textContent = copy.title;
+        }
+        if (flowSubtitle) {
+            flowSubtitle.textContent = copy.subtitle;
+        }
+        if (headerTitle) {
+            headerTitle.textContent = copy.title;
+        }
+        if (headerSubtitle) {
+            headerSubtitle.textContent = copy.subtitle;
+        }
+        if (sourceGroup) {
+            sourceGroup.classList.toggle('hidden', !copy.showSource);
+        }
+        if (targetGroup) {
+            targetGroup.classList.toggle('hidden', !copy.showTarget);
+        }
+    }
+
     function switchMode(mode) {
+        if (mode === 'guideline' || mode === 'custom') {
+            openGuidelineAi(mode);
+            return;
+        }
+
         currentMode = mode;
         
-        // Hide all mode sections
         document.querySelectorAll('.mode-section').forEach(el => {
             el.classList.remove('active');
             el.classList.add('hidden');
         });
         
-        // Show selected mode
         const modeId = mode + 'Mode';
         const modeElement = document.getElementById(modeId);
         if (modeElement) {
             modeElement.classList.add('active');
             modeElement.classList.remove('hidden');
         }
-        
-        // Update sidebar visibility
-        document.getElementById('templateTypeGroup').classList.toggle('hidden', mode !== 'guideline');
-        document.getElementById('customTemplateGroup').classList.toggle('hidden', mode !== 'custom');
+
+        updateConvertLabels(mode);
     }
 
-    // Navigate between steps
     function goToStep(stepId) {
         document.querySelectorAll('.step').forEach(el => {
             el.classList.remove('active');
@@ -38,7 +134,6 @@
         }
     }
 
-    // File handling for Universal mode
     function handleUniversalFileInput() {
         const input = document.getElementById('universalFileInput');
         const file = input.files[0];
@@ -47,10 +142,8 @@
             return;
         }
         currentFiles.universal = file;
-        goToStep('universal-step-2');
     }
 
-    // File handling for Guideline mode
     function handleGuidelineFileInput() {
         const input = document.getElementById('guidelineFileInput');
         const file = input.files[0];
@@ -62,7 +155,6 @@
         goToStep('guideline-step-2');
     }
 
-    // File handling for Custom Template mode
     function handleCustomFileInput() {
         const input = document.getElementById('customFileInput');
         const file = input.files[0];
@@ -74,7 +166,6 @@
         goToStep('custom-step-2');
     }
 
-    // Select Guideline template
     function selectTemplate(templateType, el) {
         currentTemplate = templateType;
         document.querySelectorAll('.template-card').forEach(card => {
@@ -83,7 +174,6 @@
         el.classList.add('selected');
     }
 
-    // Preview Guideline formatting
     async function previewGuidelineFormatting() {
         const text = document.getElementById('formatTextPreview').value;
         if (!text) {
@@ -92,14 +182,12 @@
         }
 
         try {
-            const response = await fetch('/api/v2/format-text-guideline', {
+            const response = await fetch('/api/v2/format/text', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    text: text
-                })
+                body: JSON.stringify(text)
             });
 
             if (!response.ok) {
@@ -116,7 +204,6 @@
         }
     }
 
-    // Convert with Guideline template
     async function convertWithGuideline() {
         if (!currentFiles.guideline) {
             alert('Vui lòng chọn file');
@@ -128,24 +215,40 @@
             return;
         }
 
-        const formData = new FormData();
-        formData.append('file', currentFiles.guideline);
-        formData.append('template_type', currentTemplate);
-        formData.append('enable_guideline', document.getElementById('enableGuideline').checked);
-
         showLoadingOverlay(true, `Đang chuyển đổi với Template ${currentTemplate}...`);
 
         try {
-            const response = await fetch('/api/v2/convert-with-guideline', {
+            const uploadForm = new FormData();
+            uploadForm.append('file', currentFiles.guideline);
+
+            const uploadResponse = await fetch('/api/v2/upload', {
                 method: 'POST',
-                body: formData
+                body: uploadForm
             });
 
-            if (!response.ok) {
-                throw new Error('Lỗi chuyển đổi');
+            const uploadData = await uploadResponse.json();
+            if (!uploadResponse.ok) {
+                const detail = uploadData.detail || uploadData.error || 'Lỗi upload';
+                throw new Error(detail);
             }
 
+            const response = await fetch('/api/v2/convert/guideline', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    filename: uploadData.filename,
+                    template_type: currentTemplate
+                })
+            });
+
             const result = await response.json();
+            if (!response.ok) {
+                const detail = result.detail || result.error || 'Lỗi chuyển đổi';
+                throw new Error(detail);
+            }
+
             handleConversionSuccess(result);
         } catch (error) {
             console.error('Error:', error);
@@ -155,9 +258,11 @@
         }
     }
 
-    // Load predefined template
     async function loadPredefinedTemplate() {
-        const select = document.getElementById('customTemplateSelect');
+        const select = document.getElementById('predefinedTemplateSelect') || document.getElementById('customTemplateSelect');
+        if (!select) {
+            return;
+        }
         const templateKey = select.value;
 
         if (!templateKey) {
@@ -180,7 +285,6 @@
         }
     }
 
-    // Extract variables from template
     function extractVariablesFromTemplate(template) {
         const variableRegex = /\{\{([A-Z_]+)\}\}/g;
         const variables = new Set();
@@ -198,12 +302,10 @@
         renderVariablesInputs();
     }
 
-    // Render variable inputs
     function renderVariablesInputs() {
         const container = document.getElementById('variablesInputs');
         container.innerHTML = '';
 
-        // Show variables list
         const listContainer = document.getElementById('variablesList');
         listContainer.innerHTML = '';
         Object.keys(templateVariables).forEach(varName => {
@@ -213,7 +315,6 @@
             listContainer.appendChild(tag);
         });
 
-        // Create input fields
         Object.keys(templateVariables).forEach(varName => {
             const group = document.createElement('div');
             group.className = 'variable-input-group';
@@ -223,7 +324,6 @@
         });
     }
 
-    // Convert with Custom Template
     async function convertWithCustomTemplate() {
         if (!currentFiles.custom) {
             alert('Vui lòng chọn file');
@@ -236,7 +336,6 @@
             return;
         }
 
-        // Collect variable values
         const variables = {};
         Object.keys(templateVariables).forEach(varName => {
             const input = document.getElementById('var_' + varName);
@@ -273,32 +372,51 @@
         }
     }
 
-    // Universal conversion
     async function convertUniversal() {
-        if (!currentFiles.universal) {
+        const input = document.getElementById('universalFileInput');
+        const file = input ? input.files[0] : null;
+        if (!file) {
             alert('Vui lòng chọn file');
             return;
         }
+        currentFiles.universal = file;
 
-        const formData = new FormData();
-        formData.append('file', currentFiles.universal);
-        formData.append('output_format', document.getElementById('universalOutputFormat').value);
-        formData.append('preserve_formatting', document.getElementById('preserveFormatting').checked);
-        formData.append('extract_images', document.getElementById('extractImages').checked);
-
-        showLoadingOverlay(true, 'Đang chuyển đổi file...');
+        showLoadingOverlay(true, 'Đang tải file và chuyển đổi...');
 
         try {
-            const response = await fetch('/api/v2/convert', {
+            const uploadForm = new FormData();
+            uploadForm.append('file', currentFiles.universal);
+
+            const uploadResponse = await fetch('/api/v2/upload', {
                 method: 'POST',
-                body: formData
+                body: uploadForm
             });
 
-            if (!response.ok) {
-                throw new Error('Lỗi chuyển đổi');
+            const uploadData = await uploadResponse.json();
+
+            if (!uploadResponse.ok) {
+                const detail = uploadData.detail || uploadData.error || 'Lỗi upload';
+                throw new Error(detail);
             }
 
-            const result = await response.json();
+            const convertResponse = await fetch('/api/v2/convert/markdown', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    filename: uploadData.filename,
+                    output_format: 'markdown'
+                })
+            });
+
+            const result = await convertResponse.json();
+
+            if (!convertResponse.ok) {
+                const detail = result.detail || result.error || 'Lỗi chuyển đổi';
+                throw new Error(detail);
+            }
+
             handleConversionSuccess(result);
         } catch (error) {
             console.error('Error:', error);
@@ -308,7 +426,6 @@
         }
     }
 
-    // Handle conversion success
     function handleConversionSuccess(result) {
         const status = document.getElementById('conversionStatus');
         status.className = 'status success';
@@ -321,7 +438,6 @@
         `;
     }
 
-    // Show loading overlay
     function showLoadingOverlay(show, message = '') {
         const overlay = document.getElementById('loadingOverlay');
         if (show) {
@@ -334,12 +450,10 @@
         }
     }
 
-    // Initialize page
     document.addEventListener('DOMContentLoaded', () => {
-        // Show classic mode by default
         switchMode('classic');
+        openHome();
         
-        // Add event listener for checkbox visibility
         const guidelineCheckbox = document.getElementById('enableGuideline');
         if (guidelineCheckbox) {
             guidelineCheckbox.addEventListener('change', () => {
@@ -348,7 +462,6 @@
             });
         }
 
-        // Add event listener for custom template checkbox
         const customFormatCheckbox = document.getElementById('applyGuidelineFormatting');
         if (customFormatCheckbox) {
             customFormatCheckbox.addEventListener('change', () => {
@@ -357,7 +470,6 @@
             });
         }
 
-        // Template text change listener
         const templateTextarea = document.getElementById('customTemplate');
         if (templateTextarea) {
             templateTextarea.addEventListener('change', () => {

@@ -1,106 +1,61 @@
-"""
-Universal File Converter - Tích hợp Markitdown
-Hỗ trợ convert: PDF, DOCX, PPTX, HTML, Images, Excel, CSV, Jupyter, etc.
-Tích hợp với UrBox Guideline format
-"""
-
 import os
-import tempfile
 from pathlib import Path
 from typing import Optional, Dict, Any
-import markitdown
-from .excel_processor import (
-    convert_excel_to_docx,
-    convert_excel_to_markdown,
+from .processor import (
+    ClassicExcelProcessor,
+    UniversalFileProcessor,
     ExcelProcessorError
 )
 from .markdown_formatter import MarkdownFormatter
 from .template_processor import (
-    GuidelineTemplate,
     TemplateBuilder,
     TemplateVariableInjector,
-    TemplateType,
-    PredefinedTemplates
+    TemplateType
 )
 
 
 class UniversalConverterError(Exception):
-    """Exception cho Universal Converter"""
     pass
 
 
 class FileTypeDetector:
-    """Detect file type và lấy thông tin file"""
-    
-    # Supported file extensions với descriptions
     SUPPORTED_FORMATS = {
         # Documents
         '.pdf': 'Portable Document Format',
         '.docx': 'Microsoft Word Document',
-        '.doc': 'Microsoft Word Document (Legacy)',
-        '.txt': 'Plain Text File',
-        '.md': 'Markdown File',
-        
-        # Spreadsheets
-        '.xlsx': 'Microsoft Excel Workbook',
-        '.xls': 'Microsoft Excel Workbook (Legacy)',
-        '.csv': 'Comma-Separated Values',
-        
-        # Presentations
         '.pptx': 'Microsoft PowerPoint Presentation',
-        '.ppt': 'Microsoft PowerPoint Presentation (Legacy)',
-        
-        # Data Formats
-        '.json': 'JSON Data',
-        '.xml': 'XML Data',
-        
-        # Web
-        '.html': 'HyperText Markup Language',
-        '.htm': 'HyperText Markup Language',
+        '.xlsx': 'Microsoft Excel Workbook',
         
         # Images
         '.png': 'Portable Network Graphics',
         '.jpg': 'JPEG Image',
-        '.jpeg': 'JPEG Image',
-        '.gif': 'Graphics Interchange Format',
-        '.bmp': 'Bitmap Image',
-        '.webp': 'WebP Image',
-        '.svg': 'Scalable Vector Graphics',
         
-        # Code & Notebooks
-        '.ipynb': 'Jupyter Notebook',
-        '.py': 'Python Source Code',
-        '.r': 'R Source Code',
-        '.rmd': 'R Markdown',
-        '.js': 'JavaScript Source Code',
-        '.ts': 'TypeScript Source Code',
-        '.java': 'Java Source Code',
-        '.cpp': 'C++ Source Code',
-        '.c': 'C Source Code',
+        # Audio
+        '.mp3': 'MP3 Audio',
+        '.wav': 'WAV Audio',
+        '.m4a': 'M4A Audio',
+        '.aac': 'AAC Audio',
+        '.flac': 'FLAC Audio',
+        '.ogg': 'OGG Audio',
         
-        # Archives & Others
-        '.msg': 'Outlook Message',
-        '.epub': 'EPUB eBook',
-        '.rss': 'RSS Feed',
+        # Web
+        '.html': 'HyperText Markup Language',
+        
+        # Data Formats
+        '.csv': 'Comma-Separated Values',
+        '.json': 'JSON Data',
+        '.xml': 'XML Data',
+        
+        # Archives
+        '.zip': 'ZIP Archive',
     }
     
-    MARKITDOWN_SUPPORTED = {
-        '.pdf', '.docx', '.doc', '.txt', '.md',
-        '.xlsx', '.xls', '.csv',
-        '.pptx', '.ppt',
-        '.json', '.xml',
-        '.html', '.htm',
-        '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp',
-        '.ipynb',
-        '.py', '.r', '.rmd', '.js', '.ts', '.java', '.cpp', '.c',
-        '.msg', '.epub', '.rss'
-    }
+    MARKITDOWN_SUPPORTED = set(SUPPORTED_FORMATS.keys())
     
-    EXCEL_SPECIFIC = {'.xlsx', '.xls'}
+    EXCEL_SPECIFIC = {'.xlsx'}
 
     @staticmethod
     def detect(file_path: str) -> Dict[str, Any]:
-        """Detect file type và trả về thông tin"""
         ext = Path(file_path).suffix.lower()
         
         if not os.path.exists(file_path):
@@ -126,21 +81,14 @@ class FileTypeDetector:
 
 
 class UniversalConverter:
-    """Main converter class - tích hợp Excel processor + Markitdown + Guideline Format"""
-    
     def __init__(self, max_file_size: int = 100 * 1024 * 1024):
         self.max_file_size = max_file_size
-        try:
-            # Try new markitdown API
-            self.markitdown_converter = markitdown.MarkItDown()
-        except (AttributeError, TypeError):
-            # Fallback for different markitdown versions
-            self.markitdown_converter = None
         self.formatter = MarkdownFormatter()
         self.template_injector = TemplateVariableInjector()
+        self.classic_processor = ClassicExcelProcessor()
+        self.universal_processor = UniversalFileProcessor(max_file_size=max_file_size)
     
     def validate_file(self, file_path: str) -> None:
-        """Validate file trước convert"""
         if not os.path.exists(file_path):
             raise UniversalConverterError(f"File không tồn tại: {file_path}")
         
@@ -167,18 +115,7 @@ class UniversalConverter:
         file_info = FileTypeDetector.detect(file_path)
         
         try:
-            # Sử dụng markitdown để convert
-            result = self.markitdown_converter.convert(file_path)
-            markdown_content = result.text_content
-            
-            # Lưu output nếu có path
-            if output_path:
-                os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    f.write(markdown_content)
-            
-            return markdown_content
-        
+            return self.universal_processor.convert_to_markdown(file_path, output_path)
         except Exception as e:
             raise UniversalConverterError(
                 f"Lỗi convert {file_info['ext']} sang Markdown: {str(e)}"
@@ -192,18 +129,16 @@ class UniversalConverter:
         header_row: int,
         data_start_row: int,
         output_path: str
-    ) -> str:
-        """Convert Excel file sang DOCX (specialized handler)"""
+    ) -> int:
         try:
-            output = convert_excel_to_docx(
+            return self.classic_processor.convert_excel_to_docx(
                 file_path,
+                output_path,
                 sheet_name,
                 columns,
                 header_row,
-                data_start_row,
-                output_path
+                data_start_row
             )
-            return output
         except ExcelProcessorError as e:
             raise UniversalConverterError(f"Excel conversion error: {str(e)}")
     
@@ -215,18 +150,19 @@ class UniversalConverter:
         header_row: int,
         data_start_row: int,
         output_path: Optional[str] = None
-    ) -> str:
-        """Convert Excel sang Markdown table format"""
+    ) -> int:
         try:
-            markdown_content = convert_excel_to_markdown(
+            if output_path is None:
+                raise UniversalConverterError("output_path is required for Markdown table output")
+
+            return self.classic_processor.convert_excel_to_markdown(
                 file_path,
+                output_path,
                 sheet_name,
                 columns,
                 header_row,
-                data_start_row,
-                output_path
+                data_start_row
             )
-            return markdown_content
         except ExcelProcessorError as e:
             raise UniversalConverterError(f"Excel to Markdown error: {str(e)}")
     
@@ -253,27 +189,19 @@ class UniversalConverter:
         file_info = FileTypeDetector.detect(file_path)
         
         try:
-            # 1. Convert file thô
-            raw_markdown = self.markitdown_converter.convert(file_path).text_content
-            
-            # 2. Format theo guideline
+            raw_markdown = self.universal_processor.convert_to_markdown(file_path)
             formatted_markdown = self.formatter.format_text(raw_markdown)
-            
-            # 3. Tạo template
+
             template_data = template_data or {}
             builder = TemplateBuilder(template_type)
-            
-            # Inject raw content vào template
             builder.set_content(formatted_markdown)
             
-            # Apply các field khác từ template_data
             for key, value in template_data.items():
                 if hasattr(builder, f'set_{key}'):
                     getattr(builder, f'set_{key}')(value)
             
             result_markdown = builder.build()
             
-            # 4. Lưu output nếu có path
             if output_path:
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
                 with open(output_path, 'w', encoding='utf-8') as f:
@@ -308,19 +236,13 @@ class UniversalConverter:
         self.validate_file(file_path)
         
         try:
-            # 1. Convert file thô
-            raw_markdown = self.markitdown_converter.convert(file_path).text_content
-            
-            # 2. Format theo guideline
+            raw_markdown = self.universal_processor.convert_to_markdown(file_path)
             formatted_markdown = self.formatter.format_text(raw_markdown)
             
-            # 3. Inject content vào template
             template_vars = variables or {}
             template_vars['MAIN_CONTENT'] = formatted_markdown
-            
             result_markdown = self.template_injector.inject(template, template_vars)
             
-            # 4. Lưu output nếu có path
             if output_path:
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
                 with open(output_path, 'w', encoding='utf-8') as f:
@@ -334,17 +256,13 @@ class UniversalConverter:
             )
     
     def get_supported_formats(self) -> Dict[str, str]:
-        """Lấy danh sách các định dạng được hỗ trợ"""
         return FileTypeDetector.SUPPORTED_FORMATS
     
     def get_supported_extensions(self) -> list:
-        """Lấy danh sách extension được hỗ trợ"""
         return sorted(list(FileTypeDetector.SUPPORTED_FORMATS.keys()))
 
 
 class BatchConverter:
-    """Hỗ trợ convert multiple files"""
-    
     def __init__(self):
         self.converter = UniversalConverter()
     
@@ -377,7 +295,6 @@ class BatchConverter:
         
         os.makedirs(output_dir, exist_ok=True)
         
-        # Lấy tất cả files
         for filename in os.listdir(input_dir):
             file_path = os.path.join(input_dir, filename)
             
@@ -391,11 +308,9 @@ class BatchConverter:
             results['total'] += 1
             
             try:
-                # Generate output path
                 output_filename = Path(filename).stem + '.md'
                 output_path = os.path.join(output_dir, output_filename)
                 
-                # Convert
                 self.converter.convert_to_markdown(file_path, output_path)
                 
                 results['success'] += 1
@@ -417,7 +332,6 @@ class BatchConverter:
         return results
 
 
-# Utility functions
 def get_conversion_formats(file_ext: str) -> list:
     """
     Lấy danh sách format có thể convert tới từ một file type
@@ -429,11 +343,7 @@ def get_conversion_formats(file_ext: str) -> list:
         List các output formats
     """
     ext = file_ext.lower()
-    
-    # Tất cả files có thể convert sang Markdown
     formats = ['markdown']
-    
-    # Excel files có thể convert sang DOCX hoặc Markdown table
     if ext in {'.xlsx', '.xls'}:
         formats.extend(['docx', 'markdown_table'])
     

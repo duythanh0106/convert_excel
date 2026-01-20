@@ -20,12 +20,8 @@ from .auth_oidc import (
     logout,
 )
 
-from .excel_processor import (
-    get_sheet_names,
-    preview_sheet_data,
-    get_column_headers,
-    convert_excel_to_docx,
-    convert_excel_to_markdown,
+from .processor import (
+    ClassicExcelProcessor,
     ExcelProcessorError
 )
 
@@ -127,8 +123,13 @@ app.add_api_route(
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
 OUTPUT_FOLDER = os.getenv('OUTPUT_FOLDER', 'outputs')
 MAX_FILE_SIZE = int(os.getenv('MAX_FILE_SIZE', 50 * 1024 * 1024))
-ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', '.xlsx').split(','))
+ALLOWED_EXTENSIONS = set(os.getenv(
+    'ALLOWED_EXTENSIONS',
+    '.pdf,.docx,.pptx,.xlsx,.png,.jpg,.mp3,.wav,.m4a,.aac,.flac,.ogg,.html,.csv,.json,.xml,.zip'
+).split(','))
+EXCEL_EXTENSIONS = {'.xlsx', '.xls'}
 CLEANUP_HOURS = int(os.getenv('CLEANUP_HOURS', 24))
+classic_processor = ClassicExcelProcessor()
 
 
 class PreviewRequest(BaseModel):
@@ -182,9 +183,45 @@ class ConvertRequest(BaseModel):
         }
 
 
-def allowed_file(filename: str) -> bool:
+def allowed_file(filename: str, allowed_exts: set[str]) -> bool:
     ext = os.path.splitext(filename)[1].lower()
-    return ext in ALLOWED_EXTENSIONS
+    return ext in allowed_exts
+
+
+def save_upload_file(file: UploadFile, allowed_exts: set[str]) -> dict:
+    if not file.filename:
+        raise HTTPException(400, 'Chưa chọn file')
+
+    if not allowed_file(file.filename, allowed_exts):
+        raise HTTPException(
+            400,
+            f"File không hợp lệ. Chỉ chấp nhận {', '.join(sorted(allowed_exts))}"
+        )
+
+    contents = file.file.read()
+    file_size = len(contents)
+
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            400,
+            f'File quá lớn: {file_size / 1024 / 1024:.1f}MB (max 50MB)'
+        )
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    name, ext = os.path.splitext(file.filename)
+    clean_name = "".join(c for c in name if c.isalnum() or c in (' ', '-', '_'))
+    filename = f"{clean_name}_{timestamp}{ext}"
+
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+    with open(filepath, 'wb') as f:
+        f.write(contents)
+
+    return {
+        'filename': filename,
+        'file_size': f"{file_size / 1024:.1f} KB",
+        'filepath': filepath
+    }
 
 
 def cleanup_old_files(folder: str, max_age_hours: int = 24):
@@ -288,35 +325,10 @@ async def upload_file(file: UploadFile = File(...)):
     - `500`: Lỗi server
     """
     try:
-        if not file.filename:
-            raise HTTPException(400, 'Chưa chọn file')
-        
-        if not allowed_file(file.filename):
-            raise HTTPException(
-                400, 
-                'File không hợp lệ. Chỉ chấp nhận .xlsx'
-            )
-        
-        contents = await file.read()
-        file_size = len(contents)
-        
-        if file_size > MAX_FILE_SIZE:
-            raise HTTPException(
-                400, 
-                f'File quá lớn: {file_size / 1024 / 1024:.1f}MB (max 50MB)'
-            )
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        name, ext = os.path.splitext(file.filename)
-        clean_name = "".join(c for c in name if c.isalnum() or c in (' ', '-', '_'))
-        filename = f"{clean_name}_{timestamp}{ext}"
-        
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        
-        with open(filepath, 'wb') as f:
-            f.write(contents)
-        
-        sheets = get_sheet_names(filepath)
+        result = save_upload_file(file, EXCEL_EXTENSIONS)
+        filename = result['filename']
+        filepath = result['filepath']
+        sheets = classic_processor.get_sheet_names(filepath)
         
         if not sheets:
             os.remove(filepath)
@@ -325,11 +337,29 @@ async def upload_file(file: UploadFile = File(...)):
         return {
             'filename': filename,
             'sheets': sheets,
-            'file_size': f"{file_size / 1024:.1f} KB"
+            'file_size': result['file_size']
         }
         
     except ExcelProcessorError as e:
         raise HTTPException(400, str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f'Lỗi không xác định: {str(e)}')
+
+
+@app.post('/api/v2/upload', tags=["Universal Converter"])
+async def upload_universal_file(file: UploadFile = File(...)):
+    """
+    Upload file for Universal/Guideline flows.
+    Accepts all allowed extensions from environment.
+    """
+    try:
+        result = save_upload_file(file, ALLOWED_EXTENSIONS)
+        return {
+            'filename': result['filename'],
+            'file_size': result['file_size']
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -355,7 +385,7 @@ async def preview_sheet(data: PreviewRequest):
         if not os.path.exists(filepath):
             raise HTTPException(404, 'File không tồn tại. Vui lòng upload lại')
         
-        result = preview_sheet_data(filepath, data.sheet, data.num_rows)
+        result = classic_processor.preview_sheet_data(filepath, data.sheet, data.num_rows)
         return result
         
     except ExcelProcessorError as e:
@@ -383,7 +413,7 @@ async def get_columns(data: ColumnsRequest):
         if not os.path.exists(filepath):
             raise HTTPException(404, 'File không tồn tại. Vui lòng upload lại')
         
-        headers = get_column_headers(filepath, data.sheet, data.header_row)
+        headers = classic_processor.get_column_headers(filepath, data.sheet, data.header_row)
         
         if not headers:
             raise HTTPException(
@@ -446,7 +476,7 @@ async def convert(data: ConvertRequest):
         output_filename = f"output_{timestamp}.docx"
         output_path = os.path.join(OUTPUT_FOLDER, output_filename)
         
-        row_count = convert_excel_to_docx(
+        row_count = classic_processor.convert_excel_to_docx(
             input_path, 
             output_path, 
             data.sheet, 
@@ -497,7 +527,7 @@ async def convert_markdown(data: ConvertRequest):
         output_filename = f"output_{timestamp}.md"
         output_path = os.path.join(OUTPUT_FOLDER, output_filename)
 
-        row_count = convert_excel_to_markdown(
+        row_count = classic_processor.convert_excel_to_markdown(
             input_path,
             output_path,
             data.sheet,
@@ -628,12 +658,10 @@ async def convert_to_markdown(request: UniversalUploadRequest):
         if not os.path.exists(input_path):
             raise HTTPException(404, f'File không tồn tại: {request.filename}')
         
-        # Tạo output filename
         base_name = os.path.splitext(request.filename)[0]
         output_filename = f"{base_name}_converted_{int(time.time())}.md"
         output_path = os.path.join(OUTPUT_FOLDER, output_filename)
         
-        # Convert
         markdown_content = universal_converter.convert_to_markdown(input_path, output_path)
         
         return {
@@ -665,10 +693,8 @@ async def batch_convert(request: BaseModel):
         Kết quả convert từng file
     """
     try:
-        # Request body
         batch_converter = BatchConverter()
         
-        # Tạm thời convert từ uploads folder
         results = batch_converter.convert_directory(
             UPLOAD_FOLDER,
             OUTPUT_FOLDER
@@ -684,8 +710,6 @@ async def batch_convert(request: BaseModel):
     except Exception as e:
         raise HTTPException(500, f'Lỗi batch convert: {str(e)}')
 
-
-# ===== GUIDELINE TEMPLATE ENDPOINTS =====
 
 class GuidelineConvertRequest(BaseModel):
     filename: str = Field(..., description="Tên file đã upload")
@@ -851,19 +875,17 @@ async def universal_converter_info():
         'version': '1.0.0',
         'description': 'Convert nhiều loại file sang Markdown hoặc định dạng khác',
         'capabilities': {
-            'documents': ['PDF', 'DOCX', 'TXT', 'MD'],
-            'spreadsheets': ['XLSX', 'XLS', 'CSV'],
-            'presentations': ['PPTX', 'PPT'],
-            'data_formats': ['JSON', 'XML'],
-            'web': ['HTML', 'RSS'],
-            'images': ['PNG', 'JPG', 'GIF', 'BMP', 'WEBP', 'SVG'],
-            'code': ['IPYNB', 'PY', 'R', 'RMD', 'JS', 'TS', 'JAVA', 'CPP'],
-            'archives': ['MSG', 'EPUB']
+            'documents': ['PDF', 'DOCX'],
+            'presentations': ['PPTX'],
+            'spreadsheets': ['XLSX'],
+            'images': ['PNG', 'JPG'],
+            'audio': ['MP3', 'WAV', 'M4A', 'AAC', 'FLAC', 'OGG'],
+            'web': ['HTML'],
+            'data_formats': ['CSV', 'JSON', 'XML'],
+            'archives': ['ZIP']
         },
         'powered_by': 'Markitdown'
     }
-
-
 
 
 @app.get('/health', tags=["System"])
@@ -905,8 +927,6 @@ async def info():
     }
 
 
-
-
 @app.on_event("startup")
 async def startup_event():
     local_ip = get_host_ip()
@@ -918,13 +938,14 @@ async def startup_event():
     print("   • Excel to DOCX/Markdown Converter")
     print("   • Universal File Converter (Powered by Markitdown)")
     print("\n📁 SUPPORTED FORMATS:")
-    print("   • Documents: PDF, DOCX, TXT, MD")
-    print("   • Spreadsheets: XLSX, CSV, XLS")
-    print("   • Presentations: PPTX, PPT")
-    print("   • Images: PNG, JPG, GIF, WEBP")
-    print("   • Code: IPYNB, PY, R, RMD, JS, TS, JAVA, CPP")
-    print("   • Web: HTML, RSS, XML, JSON")
-    print("   • Archives: MSG, EPUB")
+    print("   • Documents: PDF, DOCX")
+    print("   • Presentations: PPTX")
+    print("   • Spreadsheets: XLSX")
+    print("   • Images: PNG, JPG")
+    print("   • Audio: MP3, WAV, M4A, AAC, FLAC, OGG")
+    print("   • Web: HTML")
+    print("   • Data: CSV, JSON, XML")
+    print("   • Archives: ZIP")
     print("\n🌐 TRUY CẬP TỪ MÁY NÀY:")
     print(f"   → http://localhost:8080")
     print("\n🌍 TRUY CẬP TỪ MÁY KHÁC CÙNG MẠNG:")

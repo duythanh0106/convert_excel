@@ -19,6 +19,52 @@
     const loadingSubtext = document.getElementById('loadingSubtext');
     const progressContainer = document.getElementById('progressContainer');
     const progressBar = document.getElementById('progressBar');
+    function resetSteps(fromStep) {
+        if (fromStep <= 2) {
+            if (sheetSelect) {
+                sheetSelect.innerHTML = '<option value=\"\">-- Chọn sheet --</option>';
+                sheetSelect.value = '';
+            }
+            currentSheet = '';
+        }
+        if (fromStep <= 3) {
+            document.getElementById('previewTable').innerHTML = '';
+            document.getElementById('previewRows').textContent = '0';
+            document.getElementById('totalRows').textContent = '0';
+            document.getElementById('totalCols').textContent = '0';
+            document.getElementById('step3').classList.add('hidden');
+        }
+        if (fromStep <= 4) {
+            document.getElementById('step4').classList.add('hidden');
+            document.getElementById('headerRowInput').value = '2';
+            document.getElementById('dataStartInput').value = '3';
+            document.getElementById('dataEndInput').value = '';
+        }
+        if (fromStep <= 5) {
+            selectedColumns = [];
+            document.getElementById('columnsGrid').innerHTML = '';
+            document.getElementById('selectedCount').textContent = '0';
+            document.getElementById('totalCount').textContent = '0';
+            document.getElementById('step5').classList.add('hidden');
+        }
+        if (fromStep <= 6) {
+            document.getElementById('step6').classList.add('hidden');
+        }
+        const downloadSection = document.getElementById('downloadSection');
+        if (downloadSection) {
+            downloadSection.classList.add('hidden');
+        }
+    }
+    function clearClassicStatus() {
+        if (statusMsg) {
+            statusMsg.textContent = '';
+            statusMsg.className = 'status hidden';
+        }
+        const downloadSection = document.getElementById('downloadSection');
+        if (downloadSection) {
+            downloadSection.classList.add('hidden');
+        }
+    }
 
     function showLoading(text, subtext, showProgress = false) {
         loadingText.textContent = text;
@@ -90,6 +136,9 @@
         const file = fileInput.files[0];
         if (!file) return;
 
+        clearClassicStatus();
+        resetSteps(2);
+
         const maxSize = 50 * 1024 * 1024; // 50MB
         if (file.size > maxSize) {
             showStatus(`File quá lớn: ${(file.size / 1024 / 1024).toFixed(1)}MB (tối đa 50MB)`, 'error');
@@ -153,8 +202,8 @@
     
     async function loadPreview() {
         const selectedSheet = sheetSelect.value;
+        resetSteps(3);
         if (!selectedSheet) {
-            document.getElementById('step3').classList.add('hidden');
             return;
         }
 

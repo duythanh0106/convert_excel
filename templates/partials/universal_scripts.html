@@ -1,0 +1,169 @@
+<script>
+    let universalFile = null;
+
+    function updateUniversalFileInfo() {
+        const input = document.getElementById('universalFileInput');
+        const info = document.getElementById('universalFileInfo');
+        if (!input || !info || !input.files || input.files.length === 0) {
+            if (info) {
+                info.textContent = '';
+                info.classList.add('hidden');
+            }
+            return false;
+        }
+        const file = input.files[0];
+        const sizeKb = (file.size / 1024).toFixed(1);
+        info.textContent = `✓ ${file.name} (${sizeKb} KB)`;
+        info.classList.remove('hidden');
+        return true;
+    }
+
+    function clearUniversalStatus() {
+        const status = document.getElementById('conversionStatus');
+        if (status) {
+            status.innerHTML = '';
+            status.className = 'status hidden';
+        }
+        const downloadSection = document.getElementById('downloadSection');
+        if (downloadSection) {
+            downloadSection.classList.add('hidden');
+        }
+    }
+
+    function setupUniversalUploadArea() {
+        const area = document.getElementById('universalUploadArea');
+        const input = document.getElementById('universalFileInput');
+        if (!area || !input) return;
+
+        area.addEventListener('click', () => input.click());
+
+        let dragCounter = 0;
+        area.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            area.classList.add('dragover');
+        });
+        area.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter === 0) {
+                area.classList.remove('dragover');
+            }
+        });
+        area.addEventListener('dragover', (e) => e.preventDefault());
+        area.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            area.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                input.files = e.dataTransfer.files;
+                input.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+
+    if (typeof showLoadingOverlay === 'undefined') {
+        function showLoadingOverlay(show, message = '') {
+            const overlay = document.getElementById('loadingOverlay');
+            if (show) {
+                if (message) {
+                    const textEl = document.querySelector('.loading-text');
+                    if (textEl) textEl.textContent = message;
+                }
+                if (overlay) overlay.classList.add('active');
+            } else {
+                if (overlay) overlay.classList.remove('active');
+            }
+        }
+    }
+
+    if (typeof handleConversionSuccess === 'undefined') {
+        function handleConversionSuccess(result) {
+            const status = document.getElementById('conversionStatus');
+            if (!status) return;
+            status.className = 'status success';
+            status.innerHTML = `
+                <strong>✓ Chuyển đổi thành công!</strong><br/>
+                Tệp: ` + (result.output_file || 'output') + `<br/>
+                <a href="` + result.download_url + `" download class="btn btn-success" style="margin-top: 10px; display: inline-block;">
+                    ⬇️ Tải xuống
+                </a>
+            `;
+        }
+    }
+
+    function handleUniversalFileInput() {
+        const input = document.getElementById('universalFileInput');
+        if (!input || !input.files || input.files.length === 0) {
+            alert('Vui lòng chọn file');
+            return;
+        }
+        if (!updateUniversalFileInfo()) {
+            return;
+        }
+        clearUniversalStatus();
+        universalFile = input.files[0];
+    }
+
+    async function convertUniversal() {
+        const input = document.getElementById('universalFileInput');
+        const file = input ? input.files[0] : null;
+        if (!file) {
+            alert('Vui lòng chọn file');
+            return;
+        }
+        universalFile = file;
+
+        showLoadingOverlay(true, 'Đang tải file và chuyển đổi...');
+
+        try {
+            const uploadForm = new FormData();
+            uploadForm.append('file', universalFile);
+
+            const uploadResponse = await fetch('/api/v2/upload', {
+                method: 'POST',
+                body: uploadForm
+            });
+
+            const uploadData = await uploadResponse.json();
+
+            if (!uploadResponse.ok) {
+                const detail = uploadData.detail || uploadData.error || 'Lỗi upload';
+                throw new Error(detail);
+            }
+
+            const convertResponse = await fetch('/api/v2/convert/markdown', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    filename: uploadData.filename,
+                    output_format: 'markdown'
+                })
+            });
+
+            const result = await convertResponse.json();
+
+            if (!convertResponse.ok) {
+                const detail = result.detail || result.error || 'Lỗi chuyển đổi';
+                throw new Error(detail);
+            }
+
+            handleConversionSuccess(result);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Lỗi: ' + error.message);
+        } finally {
+            showLoadingOverlay(false);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const universalInput = document.getElementById('universalFileInput');
+        if (universalInput) {
+            universalInput.addEventListener('change', handleUniversalFileInput);
+        }
+        setupUniversalUploadArea();
+    });
+</script>

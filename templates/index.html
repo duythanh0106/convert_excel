@@ -112,6 +112,12 @@
             <div id="guidelineMode" class="mode-section active">
                 {% include "partials/guideline_steps.html" %}
             </div>
+            <div class="guideline-result">
+                <div id="guidelineStatus" class="status hidden"></div>
+                <div class="step hidden" id="guidelineDownloadSection">
+                    <a id="guidelineDownloadLink" class="btn btn-success" download>⬇️ Tải file kết quả</a>
+                </div>
+            </div>
         </div>
     </div>
 </section>
@@ -119,5 +125,6 @@
 {% endblock %}
 {% block scripts %}
 {% include "partials/index_scripts.html" %}
+{% include "partials/universal_scripts.html" %}
 {% include "partials/guideline_scripts.html" %}
 {% endblock %}

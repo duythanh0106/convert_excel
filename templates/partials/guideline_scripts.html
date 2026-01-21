@@ -4,6 +4,128 @@
     let currentTemplate = null;
     let templateVariables = {};
 
+    function clearGuidelineStatus() {
+        const status = document.getElementById('guidelineStatus');
+        if (status) {
+            status.textContent = '';
+            status.className = 'status hidden';
+        }
+        const download = document.getElementById('guidelineDownloadSection');
+        if (download) {
+            download.classList.add('hidden');
+        }
+        const link = document.getElementById('guidelineDownloadLink');
+        if (link) {
+            link.href = '#';
+            link.textContent = '⬇️ Tải file kết quả';
+            link.removeAttribute('download');
+        }
+    }
+
+    function showGuidelineStatus(message, type = 'info') {
+        const status = document.getElementById('guidelineStatus');
+        if (!status) return;
+        status.textContent = message;
+        status.className = `status ${type}`;
+    }
+
+    function handleGuidelineSuccess(result) {
+        showGuidelineStatus('✓ Chuyển đổi Guideline thành công!', 'success');
+        const download = document.getElementById('guidelineDownloadSection');
+        const link = document.getElementById('guidelineDownloadLink');
+        if (download && link && result.download_url) {
+            const fileName = result.file_saved || 'output.md';
+            link.href = result.download_url;
+            link.setAttribute('download', fileName);
+            link.textContent = `⬇️ Tải ${fileName}`;
+            download.classList.remove('hidden');
+        }
+    }
+
+    function resetGuidelineFlow() {
+        clearGuidelineStatus();
+        currentTemplate = null;
+        document.querySelectorAll('.template-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        const formatInput = document.getElementById('formatTextPreview');
+        if (formatInput) {
+            formatInput.value = '';
+        }
+        const formattingResult = document.getElementById('formattingResult');
+        if (formattingResult) {
+            formattingResult.classList.add('hidden');
+        }
+        const formattingPreview = document.getElementById('formattingPreview');
+        if (formattingPreview) {
+            formattingPreview.innerHTML = '';
+        }
+    }
+
+    function updateGuidelineFileInfo(inputId, infoId) {
+        const input = document.getElementById(inputId);
+        const info = document.getElementById(infoId);
+        if (!input || !info || !input.files || input.files.length === 0) {
+            if (info) {
+                info.textContent = '';
+                info.classList.add('hidden');
+            }
+            return false;
+        }
+        const file = input.files[0];
+        const sizeKb = (file.size / 1024).toFixed(1);
+        info.textContent = `✓ ${file.name} (${sizeKb} KB)`;
+        info.classList.remove('hidden');
+        return true;
+    }
+
+    function setupGuidelineUploadArea(areaId, inputId) {
+        const area = document.getElementById(areaId);
+        const input = document.getElementById(inputId);
+        if (!area || !input) return;
+
+        area.addEventListener('click', () => input.click());
+
+        let dragCounter = 0;
+        area.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            area.classList.add('dragover');
+        });
+        area.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter === 0) {
+                area.classList.remove('dragover');
+            }
+        });
+        area.addEventListener('dragover', (e) => e.preventDefault());
+        area.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            area.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                input.files = e.dataTransfer.files;
+                input.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+    function clearConvertStatuses() {
+        const status = document.getElementById('conversionStatus');
+        if (status) {
+            status.innerHTML = '';
+            status.className = 'status hidden';
+        }
+        const statusMsg = document.getElementById('statusMsg');
+        if (statusMsg) {
+            statusMsg.textContent = '';
+            statusMsg.className = 'status hidden';
+        }
+        const downloadSection = document.getElementById('downloadSection');
+        if (downloadSection) {
+            downloadSection.classList.add('hidden');
+        }
+    }
     const modeCopy = {
         classic: {
             label: 'Excel Classic',
@@ -23,6 +145,18 @@
         }
     };
 
+    function ensureConvertContent() {
+        const convertScreen = document.getElementById('convertScreen');
+        if (!convertScreen || convertScreen.classList.contains('hidden')) {
+            return;
+        }
+        const activeSection = convertScreen.querySelector('.mode-section.active:not(.hidden)');
+        if (!activeSection) {
+            const fallback = currentMode && modeCopy[currentMode] ? currentMode : 'classic';
+            switchMode(fallback);
+        }
+    }
+
     function setActiveScreen(screenId) {
         const screens = ['homeScreen', 'modeSelectScreen', 'convertScreen', 'guidelineScreen'];
         screens.forEach(id => {
@@ -34,9 +168,16 @@
             screen.classList.toggle('active', isActive);
             screen.classList.toggle('hidden', !isActive);
         });
+
+        if (screenId === 'convertScreen') {
+            ensureConvertContent();
+        }
     }
 
     function openHome() {
+        currentMode = null;
+        clearConvertStatuses();
+        clearGuidelineStatus();
         setActiveScreen('homeScreen');
     }
 
@@ -45,12 +186,16 @@
     }
 
     function openConvertFlow(mode) {
+        const targetMode = modeCopy[mode] ? mode : 'classic';
+        currentMode = targetMode;
+        clearConvertStatuses();
         setActiveScreen('convertScreen');
-        switchMode(mode);
+        switchMode(targetMode);
     }
 
     function openGuidelineAi(tab = 'guideline') {
         setActiveScreen('guidelineScreen');
+        clearGuidelineStatus();
         const isGuideline = tab !== 'custom';
         const guidelineMode = document.getElementById('guidelineMode');
         const guidelineTab = document.getElementById('guidelineTabButton');
@@ -107,41 +252,36 @@
             return;
         }
 
-        currentMode = mode;
+        currentMode = modeCopy[mode] ? mode : 'classic';
+        clearConvertStatuses();
         
         document.querySelectorAll('.mode-section').forEach(el => {
             el.classList.remove('active');
             el.classList.add('hidden');
         });
         
-        const modeId = mode + 'Mode';
-        const modeElement = document.getElementById(modeId);
+        const modeId = currentMode + 'Mode';
+        let modeElement = document.getElementById(modeId);
+        if (!modeElement) {
+            currentMode = 'classic';
+            modeElement = document.getElementById('classicMode');
+        }
         if (modeElement) {
             modeElement.classList.add('active');
             modeElement.classList.remove('hidden');
         }
 
-        updateConvertLabels(mode);
+        updateConvertLabels(currentMode);
     }
 
     function goToStep(stepId) {
-        document.querySelectorAll('.step').forEach(el => {
+        const container = document.getElementById('guidelineMode');
+        if (!container) return;
+        container.querySelectorAll('.step').forEach(el => {
             el.classList.remove('active');
         });
-        const step = document.getElementById(stepId);
-        if (step) {
-            step.classList.add('active');
-        }
-    }
-
-    function handleUniversalFileInput() {
-        const input = document.getElementById('universalFileInput');
-        const file = input.files[0];
-        if (!file) {
-            alert('Vui lòng chọn file');
-            return;
-        }
-        currentFiles.universal = file;
+        const step = container.querySelector('#' + stepId);
+        if (step) step.classList.add('active');
     }
 
     function handleGuidelineFileInput() {
@@ -151,6 +291,10 @@
             alert('Vui lòng chọn file');
             return;
         }
+        if (!updateGuidelineFileInfo('guidelineFileInput', 'guidelineFileInfo')) {
+            return;
+        }
+        resetGuidelineFlow();
         currentFiles.guideline = file;
         goToStep('guideline-step-2');
     }
@@ -215,6 +359,7 @@
             return;
         }
 
+        clearGuidelineStatus();
         showLoadingOverlay(true, `Đang chuyển đổi với Template ${currentTemplate}...`);
 
         try {
@@ -249,10 +394,10 @@
                 throw new Error(detail);
             }
 
-            handleConversionSuccess(result);
+            handleGuidelineSuccess(result);
         } catch (error) {
             console.error('Error:', error);
-            alert('Lỗi: ' + error.message);
+            showGuidelineStatus('Lỗi: ' + error.message, 'error');
         } finally {
             showLoadingOverlay(false);
         }
@@ -372,84 +517,6 @@
         }
     }
 
-    async function convertUniversal() {
-        const input = document.getElementById('universalFileInput');
-        const file = input ? input.files[0] : null;
-        if (!file) {
-            alert('Vui lòng chọn file');
-            return;
-        }
-        currentFiles.universal = file;
-
-        showLoadingOverlay(true, 'Đang tải file và chuyển đổi...');
-
-        try {
-            const uploadForm = new FormData();
-            uploadForm.append('file', currentFiles.universal);
-
-            const uploadResponse = await fetch('/api/v2/upload', {
-                method: 'POST',
-                body: uploadForm
-            });
-
-            const uploadData = await uploadResponse.json();
-
-            if (!uploadResponse.ok) {
-                const detail = uploadData.detail || uploadData.error || 'Lỗi upload';
-                throw new Error(detail);
-            }
-
-            const convertResponse = await fetch('/api/v2/convert/markdown', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    filename: uploadData.filename,
-                    output_format: 'markdown'
-                })
-            });
-
-            const result = await convertResponse.json();
-
-            if (!convertResponse.ok) {
-                const detail = result.detail || result.error || 'Lỗi chuyển đổi';
-                throw new Error(detail);
-            }
-
-            handleConversionSuccess(result);
-        } catch (error) {
-            console.error('Error:', error);
-            alert('Lỗi: ' + error.message);
-        } finally {
-            showLoadingOverlay(false);
-        }
-    }
-
-    function handleConversionSuccess(result) {
-        const status = document.getElementById('conversionStatus');
-        status.className = 'status success';
-        status.innerHTML = `
-            <strong>✓ Chuyển đổi thành công!</strong><br/>
-            Tệp: ` + (result.output_file || 'output') + `<br/>
-            <a href="` + result.download_url + `" download class="btn btn-success" style="margin-top: 10px; display: inline-block;">
-                ⬇️ Tải xuống
-            </a>
-        `;
-    }
-
-    function showLoadingOverlay(show, message = '') {
-        const overlay = document.getElementById('loadingOverlay');
-        if (show) {
-            if (message) {
-                document.querySelector('.loading-text').textContent = message;
-            }
-            overlay.classList.add('active');
-        } else {
-            overlay.classList.remove('active');
-        }
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
         switchMode('classic');
         openHome();
@@ -476,5 +543,16 @@
                 extractVariablesFromTemplate(templateTextarea.value);
             });
         }
+
+        const guidelineInput = document.getElementById('guidelineFileInput');
+        if (guidelineInput) {
+            guidelineInput.addEventListener('change', () => {
+                resetGuidelineFlow();
+                updateGuidelineFileInfo('guidelineFileInput', 'guidelineFileInfo');
+                handleGuidelineFileInput();
+            });
+        }
+
+        setupGuidelineUploadArea('guidelineUploadArea', 'guidelineFileInput');
     });
 </script>

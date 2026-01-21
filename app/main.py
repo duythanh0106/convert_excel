@@ -503,57 +503,6 @@ async def convert(data: ConvertRequest):
     except Exception as e:
         raise HTTPException(500, f'Lỗi khi chuyển đổi: {str(e)}')
 
-@app.post('/convert-markdown', tags=["Conversion"])
-async def convert_markdown(data: ConvertRequest):
-    try:
-        if data.data_start_row <= data.header_row:
-            raise HTTPException(
-                400,
-                'Dòng bắt đầu data phải lớn hơn dòng header'
-            )
-
-        if data.data_end_row and data.data_end_row < data.data_start_row:
-            raise HTTPException(
-                400,
-                'Dòng kết thúc phải lớn hơn hoặc bằng dòng bắt đầu'
-            )
-
-        input_path = os.path.join(UPLOAD_FOLDER, data.filename)
-
-        if not os.path.exists(input_path):
-            raise HTTPException(404, 'File không tồn tại. Vui lòng upload lại')
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_filename = f"output_{timestamp}.md"
-        output_path = os.path.join(OUTPUT_FOLDER, output_filename)
-
-        row_count = classic_processor.convert_excel_to_markdown(
-            input_path,
-            output_path,
-            data.sheet,
-            data.columns,
-            data.header_row,
-            data.data_start_row,
-            data.data_end_row
-        )
-
-        return {
-            'success': True,
-            'output_file': output_filename,
-            'row_count': row_count,
-            'column_count': len(data.columns),
-            'message': f'Đã xuất Markdown thành công {row_count} bản ghi với {len(data.columns)} cột'
-        }
-
-    except ExcelProcessorError as e:
-        raise HTTPException(400, str(e))
-    except HTTPException:
-        raise
-    except ValueError as e:
-        raise HTTPException(400, f'Giá trị không hợp lệ: {str(e)}')
-    except Exception as e:
-        raise HTTPException(500, f'Lỗi khi chuyển đổi: {str(e)}')
-
 @app.get('/download/{filename}', tags=["Download"])
 async def download(filename: str):
     """

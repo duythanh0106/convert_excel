@@ -6,8 +6,13 @@
         <div class="step-content">
             <div class="form-group">
                 <label for="universalFileInput">Chọn file để chuyển đổi:</label>
-                <input type="file" id="universalFileInput" />
-                <p class="info">Hỗ trợ các định dạng: PDF, DOCX, PPTX, XLSX; ảnh (PNG/JPG); Audio; HTML; định dạng text (CSV/JSON/XML); ZIP; URL YouTube.</p>
+                <div class="upload-area" id="universalUploadArea">
+                    <div class="upload-icon">📁</div>
+                    <p style="font-size: 16px; margin-bottom: 5px;"><strong>Click để chọn file</strong> hoặc kéo thả vào đây</p>
+                    <p style="font-size: 14px; color: #999;">Hỗ trợ: PDF, DOCX, PPTX, XLSX; PNG/JPG; Audio; HTML; CSV/JSON/XML; ZIP; YouTube URL</p>
+                    <input type="file" id="universalFileInput" style="display: none;" />
+                </div>
+                <div id="universalFileInfo" class="file-info hidden"></div>
             </div>
             <button class="btn btn-primary" onclick="convertUniversal()">🚀 Chuyển đổi ngay</button>
         </div>

@@ -7,8 +7,13 @@
         <div class="step-content">
             <div class="form-group">
                 <label for="guidelineFileInput">Chọn file để chuyển đổi:</label>
-                <input type="file" id="guidelineFileInput" />
-                <p class="info">Hỗ trợ: Excel, PDF, DOCX, PPTX, Images, Code, và nhiều định dạng khác</p>
+                <div class="upload-area" id="guidelineUploadArea">
+                    <div class="upload-icon">📁</div>
+                    <p style="font-size: 16px; margin-bottom: 5px;"><strong>Click để chọn file</strong> hoặc kéo thả vào đây</p>
+                    
+                    <input type="file" id="guidelineFileInput" style="display: none;" />
+                </div>
+                <div id="guidelineFileInfo" class="file-info hidden"></div>
             </div>
             <button class="btn btn-primary" onclick="handleGuidelineFileInput()">Tải file lên</button>
         </div>

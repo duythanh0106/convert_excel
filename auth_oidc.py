@@ -10,6 +10,8 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
 
+
+APP_VERSION = os.getenv("APP_VERSION", "2.0.0")
 KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID")
 KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")
 KEYCLOAK_DISCOVERY_URL = os.getenv("KEYCLOAK_DISCOVERY_URL")
@@ -49,7 +51,13 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "version": APP_VERSION,
+        },
+    )
 
 
 async def login_google(request: Request):

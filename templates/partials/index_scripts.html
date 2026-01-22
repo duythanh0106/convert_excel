@@ -19,6 +19,19 @@
     const progressContainer = document.getElementById('progressContainer');
     const progressBar = document.getElementById('progressBar');
 
+    const apiPrefix = (() => {
+        const fromWindow = typeof window !== 'undefined' ? window.API_PREFIX : '';
+        const fromMeta = document.querySelector('meta[name="api-prefix"]')?.content || '';
+        const raw = (fromWindow ?? fromMeta ?? '').trim();
+        if (!raw) return '';
+        return raw.endsWith('/') ? raw.slice(0, -1) : raw;
+    })();
+
+    const apiUrl = (path) => {
+        const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        return `${apiPrefix}${normalizedPath}`;
+    };
+
     function showLoading(text, subtext, showProgress = false) {
         loadingText.textContent = text;
         loadingSubtext.textContent = subtext;
@@ -109,7 +122,7 @@
                 }
             }, 100);
 
-            const response = await fetch('/upload', {
+            const response = await fetch(apiUrl('/upload'), {
                 method: 'POST',
                 body: formData
             });
@@ -162,7 +175,7 @@
         showIndeterminateProgress();
 
         try {
-            const response = await fetch('/preview', {
+            const response = await fetch(apiUrl('/preview'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -278,7 +291,7 @@
         showLoading('Đang phân tích cột...', 'Đọc header từ Excel', false);
 
         try {
-            const response = await fetch('/get-columns', {
+            const response = await fetch(apiUrl('/get-columns'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -373,7 +386,7 @@
             }, 150);
 
             const convertUrl = targetFormat === 'markdown' ? '/convert-markdown' : '/convert';
-            const response = await fetch(convertUrl, {
+            const response = await fetch(apiUrl(convertUrl), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -405,7 +418,7 @@
                 
                 const downloadBtn = document.getElementById('downloadBtn');
                 downloadBtn.onclick = () => {
-                    window.location.href = `/download/${data.output_file}`;
+                    window.location.href = apiUrl(`/download/${data.output_file}`);
                 };
 
                 document.getElementById('downloadSection').classList.remove('hidden');

@@ -22,8 +22,8 @@
             </button>
             <button class="nav-card" type="button" onclick="openGuidelineAi('guideline')">
                 <div class="card-body">
-                    <h3>Guideline AI</h3>
-                    <p>Chuẩn hóa nội dung theo guideline UrBox.</p>
+                    <h3>Notebook AI</h3>
+                    <p>Thao tác với AI Assistant.</p>
                 </div>
                 <span class="card-cta">Bắt đầu</span>
             </button>
@@ -96,28 +96,10 @@
 </section>
 
 <section class="flow-screen hidden" id="guidelineScreen">
-    <div class="flow-container flow-wide">
-        <div class="flow-header">
-            <button class="back-button" type="button" onclick="openHome()">← Trang chính</button>
-            <div>
-                <h2>Guideline AI</h2>
-            </div>
-        </div>
-        <div class="card main-card guideline-card">
-            <div class="guideline-hero">
-                <h3>Guideline Template</h3>
-                <p>Luồng này giúp chuẩn hóa nội dung theo guideline UrBox.</p>
-            </div>
-
-            <div id="guidelineMode" class="mode-section active">
-                {% include "partials/guideline_steps.html" %}
-            </div>
-            <div class="guideline-result">
-                <div id="guidelineStatus" class="status hidden"></div>
-                <div class="step hidden" id="guidelineDownloadSection">
-                    <a id="guidelineDownloadLink" class="btn btn-success" download>⬇️ Tải file kết quả</a>
-                </div>
-            </div>
+    <div class="flow-container flow-wide notebook-frame">
+        <button class="notebook-overlay back" type="button" aria-label="Trở về trang chính" onclick="openHome()">←</button>
+        <div id="notebookMode" class="mode-section active">
+            {% include "partials/notebook_workspace.html" %}
         </div>
     </div>
 </section>

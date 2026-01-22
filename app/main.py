@@ -836,6 +836,34 @@ async def universal_converter_info():
         'powered_by': 'Markitdown'
     }
 
+# ===== NOTEBOOK AI PROXY (placeholder, non-mock) =====
+class NotebookRequest(BaseModel):
+    action: str = Field(default="chat", description="Loại hành động: chat/summary/...")
+    prompt: str = Field(default="", description="Nội dung người dùng")
+    sources: Optional[List[dict]] = Field(default=None, description="Danh sách nguồn được chọn")
+
+
+@app.post('/api/v3/notebook', tags=["Notebook AI"])
+async def notebook_ai_proxy(req: NotebookRequest):
+    """
+    Tạm trả về nội dung mô phỏng từ backend để UI không rơi vào chế độ mock.
+    Thay thế nội dung này bằng call model thật khi API AI sẵn sàng.
+    """
+    sources = req.sources or []
+    source_count = len(sources)
+    source_part = f"Dựa trên {source_count} nguồn đã chọn." if source_count else "Chưa có nguồn nào được chọn."
+    content = (
+        f"[Notebook AI stub @ backend] {req.action}: {req.prompt or 'N/A'}\n"
+        f"{source_part}\n"
+        "- Đây là phản hồi từ /api/v3/notebook.\n"
+        "- Khi có API thật, cập nhật notebook_ai_proxy để gọi model thực."
+    )
+    return {
+        "content": content,
+        "sources": sources,
+        "mock": False
+    }
+
 
 @app.get('/health', tags=["System"])
 async def health_check():

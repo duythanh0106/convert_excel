@@ -1,0 +1,113 @@
+<div class="notebook-shell">
+    <div class="notebook-hero">
+        <h3>Notebook Workspace</h3>
+        <p>Tương tác Notebook AI dựa trên nguồn tài liệu.</p>
+    </div>
+
+    <div class="notebook-layout" id="notebookWorkspace">
+        <div class="notebook-column sources-panel">
+            <div class="panel-header">
+                <div>
+                    <p class="panel-kicker">Nguồn</p>
+                    <h4>Quản lý tài liệu</h4>
+                    <p class="panel-sub">Thêm file, link hoặc truy vấn web để làm nguồn.</p>
+                </div>
+                <span class="pill" id="notebookSourceCount">0 nguồn</span>
+            </div>
+
+            <div class="panel-block">
+                <button class="btn btn-primary full" type="button" id="notebookAddSourceBtn">+ Thêm file nguồn</button>
+                <input type="file" id="notebookFileInput" class="hidden" multiple />
+
+                <div class="inline-input">
+                    <input type="text" id="notebookLinkInput" placeholder="Dán link, mô tả hoặc ID tài liệu" />
+                    <button class="btn btn-secondary" type="button" onclick="addNotebookLinkSource()">Thêm</button>
+                </div>
+
+                <div class="inline-input compact">
+                    <input type="text" id="notebookWebQuery" placeholder="Tìm nguồn mới trên web" />
+                    <button class="btn btn-secondary" type="button" onclick="addNotebookWebSearch()">Tìm</button>
+                </div>
+            </div>
+
+            <div class="source-list empty" id="notebookSourcesList">
+                <div class="empty-state">
+                    <p>Chưa có nguồn nào.</p>
+                    <small>Thêm file hoặc link để bắt đầu.</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="notebook-column conversation-panel">
+            <div class="panel-header">
+                <div>
+                    <p class="panel-kicker">Cuộc trò chuyện</p>
+                    <h4>Notebook Assistant</h4>
+                    <p class="panel-sub">Đặt câu hỏi, yêu cầu tóm tắt, tạo ý tưởng... dựa trên nguồn đã chọn.</p>
+                </div>
+                <div class="pill secondary" id="notebookSelectionHint">Chọn nguồn</div>
+            </div>
+
+            <div class="chat-log" id="notebookMessages">
+                <div class="empty-state">
+                    <p>Thêm nguồn để bắt đầu.</p>
+                    <small>Assistant sẽ trả lời dựa trên nguồn đã chọn.</small>
+                </div>
+            </div>
+
+            <div class="chat-composer">
+                <div class="composer-actions">
+                    <div class="selected-sources" id="notebookSelectedSources">0 nguồn đang chọn</div>
+                    <button class="btn btn-secondary slim" type="button" onclick="insertSourceContext()">Chèn nguồn vào prompt</button>
+                </div>
+                <textarea id="notebookPrompt" rows="3" placeholder="Ví dụ: Tóm tắt ngắn 5 ý chính từ các nguồn đã chọn..."></textarea>
+                <div class="chat-actions">
+                    <small id="notebookApiHint">API: API_AI_NOTEBOOK (mock nếu chưa kết nối)</small>
+                    <button class="btn btn-primary" type="button" onclick="sendNotebookPrompt()">Gửi đến API_AI_NOTEBOOK</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="notebook-column studio-panel">
+            <div class="panel-header">
+                <div>
+                    <p class="panel-kicker">Studio</p>
+                    <h4>One-click outputs</h4>
+                    <p class="panel-sub">Sinh nhanh các dạng nội dung theo phong cách NotebookLM.</p>
+                </div>
+            </div>
+
+            <div class="studio-grid">
+                <button class="studio-card" type="button" onclick="triggerNotebookStudio('summary')">
+                    <span>📑</span>
+                    <div>
+                        <strong>Tổng quan bảng</strong>
+                        <p>Tóm tắt cô đọng từ tất cả nguồn đã chọn.</p>
+                    </div>
+                </button>
+                <button class="studio-card" type="button" onclick="triggerNotebookStudio('mindmap')">
+                    <span>🧭</span>
+                    <div>
+                        <strong>Bản đồ tư duy</strong>
+                        <p>Cấu trúc ý chính dạng gạch đầu dòng.</p>
+                    </div>
+                </button>
+                <button class="studio-card" type="button" onclick="triggerNotebookStudio('report')">
+                    <span>📊</span>
+                    <div>
+                        <strong>Báo cáo</strong>
+                        <p>Mẫu báo cáo ngắn gọn theo guideline UrBox.</p>
+                    </div>
+                </button>
+            </div>
+
+            <div class="studio-result hidden" id="notebookStudioResult">
+                <div class="studio-result-header">
+                    <strong id="studioResultTitle">Kết quả</strong>
+                    <button class="text-btn" type="button" onclick="clearNotebookStudio()">Xóa</button>
+                </div>
+                <div class="studio-result-body" id="notebookStudioBody"></div>
+            </div>
+        </div>
+    </div>
+</div>

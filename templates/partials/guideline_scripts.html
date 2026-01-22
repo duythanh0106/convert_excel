@@ -3,6 +3,14 @@
     let currentFiles = {};
     let currentTemplate = null;
     let templateVariables = {};
+        const NOTEBOOK_API = '/api/v3/notebook'; // TODO: đổi sang endpoint thật khi backend sẵn sàng
+    const NOTEBOOK_HEADERS = {
+        'Authorization': 'Bearer YOUR_API_KEY_HERE'
+    };
+    let notebookSources = [];
+    let notebookSelectedSourceIds = new Set();
+    let notebookMessages = [];
+    let notebookStudioAction = null;
 
     function clearGuidelineStatus() {
         const status = document.getElementById('guidelineStatus');
@@ -168,7 +176,6 @@
             screen.classList.toggle('active', isActive);
             screen.classList.toggle('hidden', !isActive);
         });
-
         if (screenId === 'convertScreen') {
             ensureConvertContent();
         }
@@ -195,18 +202,7 @@
 
     function openGuidelineAi(tab = 'guideline') {
         setActiveScreen('guidelineScreen');
-        clearGuidelineStatus();
-        const isGuideline = tab !== 'custom';
-        const guidelineMode = document.getElementById('guidelineMode');
-        const guidelineTab = document.getElementById('guidelineTabButton');
-
-        if (guidelineMode) {
-            guidelineMode.classList.add('active');
-            guidelineMode.classList.remove('hidden');
-        }
-        if (guidelineTab) {
-            guidelineTab.classList.add('active');
-        }
+        switchGuidelineTab(tab === 'notebook' ? 'notebook' : 'guideline');
     }
 
     function updateConvertLabels(mode) {
@@ -244,6 +240,15 @@
         if (targetGroup) {
             targetGroup.classList.toggle('hidden', !copy.showTarget);
         }
+    }
+
+    function switchGuidelineTab(target) {
+        const notebookModeEl = document.getElementById('notebookMode');
+        if (notebookModeEl) {
+            notebookModeEl.classList.add('active');
+            notebookModeEl.classList.remove('hidden');
+        }
+        clearGuidelineStatus();
     }
 
     function switchMode(mode) {
@@ -517,6 +522,364 @@
         }
     }
 
+    // ===== NotebookLM-style workspace helpers =====
+    function createNotebookId(prefix = 'nb') {
+        return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+
+    function escapeHtml(text) {
+        return (text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function formatNotebookText(text) {
+        return escapeHtml(text).replace(/\n/g, '<br/>');
+    }
+
+    function updateNotebookSelectedLabel() {
+        const label = document.getElementById('notebookSelectedSources');
+        const hint = document.getElementById('notebookSelectionHint');
+        const count = notebookSelectedSourceIds.size;
+        if (label) {
+            label.textContent = `${count} nguồn đang chọn`;
+        }
+        if (hint) {
+            hint.textContent = count > 0 ? `${count} nguồn` : 'Chọn nguồn';
+        }
+    }
+
+    function renderNotebookSources() {
+        const list = document.getElementById('notebookSourcesList');
+        const countLabel = document.getElementById('notebookSourceCount');
+
+        if (!list) return;
+
+        if (notebookSources.length === 0) {
+            list.classList.add('empty');
+            list.innerHTML = `
+                <div class="empty-state">
+                    <p>Chưa có nguồn nào.</p>
+                    <small>Thêm file hoặc link để bắt đầu.</small>
+                </div>
+            `;
+        } else {
+            list.classList.remove('empty');
+            list.innerHTML = notebookSources.map(src => `
+                <div class="source-card">
+                    <input type="checkbox" class="source-checkbox" data-source-id="${src.id}" onchange="toggleNotebookSource(this)" ${notebookSelectedSourceIds.has(src.id) ? 'checked' : ''}>
+                    <div class="source-meta">
+                        <div class="source-title">${escapeHtml(src.title || 'Nguồn')}</div>
+                        <div class="source-detail">${escapeHtml(src.detail || '')}</div>
+                        <div class="source-tags">
+                            <span class="source-tag">${escapeHtml(src.type || 'file')}</span>
+                            ${src.ref ? `<span class="source-tag">ID: ${escapeHtml(src.ref)}</span>` : ''}
+                        </div>
+                    </div>
+                    <button class="source-remove" type="button" onclick="removeNotebookSource('${src.id}')">×</button>
+                </div>
+            `).join('');
+        }
+
+        if (countLabel) {
+            countLabel.textContent = `${notebookSources.length} nguồn`;
+        }
+        updateNotebookSelectedLabel();
+    }
+
+    function addNotebookSource(source) {
+        const normalized = {
+            id: source.id || createNotebookId('src'),
+            title: source.title || 'Nguồn mới',
+            detail: source.detail || '',
+            type: source.type || 'file',
+            ref: source.ref || '',
+        };
+        notebookSources = [normalized, ...notebookSources.filter(s => s.id !== normalized.id)];
+        notebookSelectedSourceIds.add(normalized.id);
+        renderNotebookSources();
+    }
+
+    function removeNotebookSource(id) {
+        notebookSources = notebookSources.filter(s => s.id !== id);
+        notebookSelectedSourceIds.delete(id);
+        renderNotebookSources();
+    }
+
+    function toggleNotebookSource(el) {
+        const id = el.dataset.sourceId;
+        if (!id) return;
+        if (el.checked) {
+            notebookSelectedSourceIds.add(id);
+        } else {
+            notebookSelectedSourceIds.delete(id);
+        }
+        updateNotebookSelectedLabel();
+    }
+
+    async function addNotebookLinkSource() {
+        const input = document.getElementById('notebookLinkInput');
+        if (!input) return;
+        const value = (input.value || '').trim();
+        if (!value) {
+            alert('Vui lòng nhập link hoặc mô tả nguồn');
+            return;
+        }
+        addNotebookSource({
+            title: value.slice(0, 60),
+            detail: 'Nguồn web / ghi chú',
+            type: 'link',
+            ref: value
+        });
+        input.value = '';
+    }
+
+    async function addNotebookWebSearch() {
+        const input = document.getElementById('notebookWebQuery');
+        if (!input) return;
+        const value = (input.value || '').trim();
+        if (!value) {
+            alert('Nhập từ khóa tìm kiếm');
+            return;
+        }
+        addNotebookSource({
+            title: value,
+            detail: 'Truy vấn web (mock)',
+            type: 'web-search'
+        });
+        input.value = '';
+    }
+
+    async function handleNotebookFileChange(event) {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+        showLoadingOverlay(true, 'Đang tải nguồn...');
+        try {
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+                const response = await fetch('/api/v2/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    const detail = data.detail || data.error || 'Lỗi upload nguồn';
+                    throw new Error(detail);
+                }
+                addNotebookSource({
+                    title: file.name,
+                    detail: `${data.file_size} • ${data.filename}`,
+                    type: 'file',
+                    ref: data.filename
+                });
+            }
+        } catch (err) {
+            alert('Lỗi thêm nguồn: ' + err.message);
+        } finally {
+            event.target.value = '';
+            showLoadingOverlay(false);
+        }
+    }
+
+    function selectedNotebookSources() {
+        return Array.from(notebookSelectedSourceIds)
+            .map(id => notebookSources.find(s => s.id === id))
+            .filter(Boolean);
+    }
+
+    function insertSourceContext() {
+        const prompt = document.getElementById('notebookPrompt');
+        if (!prompt) return;
+        const sources = selectedNotebookSources();
+        if (sources.length === 0) {
+            alert('Chọn ít nhất một nguồn để chèn vào prompt');
+            return;
+        }
+        const context = sources.map(s => `- ${s.title} (${s.type}) ${s.ref ? '[' + s.ref + ']' : ''}`).join('\n');
+        prompt.value = `${prompt.value ? prompt.value + '\n' : ''}Nguồn tham chiếu:\n${context}\n`;
+        prompt.focus();
+    }
+
+    function appendNotebookMessage(role, content, meta = {}) {
+        notebookMessages.push({
+            id: createNotebookId('msg'),
+            role,
+            content: content || '',
+            meta,
+            time: new Date()
+        });
+        renderNotebookMessages();
+    }
+
+    function renderNotebookMessages() {
+        const container = document.getElementById('notebookMessages');
+        if (!container) return;
+
+        if (notebookMessages.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <p>Thêm nguồn để bắt đầu.</p>
+                    <small>Assistant sẽ trả lời dựa trên nguồn đã chọn.</small>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = notebookMessages.map(msg => {
+            const sourceTags = (msg.meta && msg.meta.sources ? msg.meta.sources : [])
+                .map(s => `<span class="source-tag">${escapeHtml(s.title || s.id)}</span>`)
+                .join('');
+            const metaLine = `${msg.role === 'user' ? 'Bạn' : 'Notebook'} · ${msg.time ? msg.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`;
+            return `
+                <div class="chat-bubble ${msg.role === 'user' ? 'user' : 'bot'}">
+                    <div class="chat-meta">
+                        <span>${metaLine}</span>
+                        ${msg.meta && msg.meta.mock ? '<span class="source-tag">Mock</span>' : ''}
+                    </div>
+                    ${sourceTags ? `<div class="chat-meta">${sourceTags}</div>` : ''}
+                    <div class="chat-content">${formatNotebookText(msg.content)}</div>
+                </div>
+            `;
+        }).join('');
+
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function generateNotebookMock(payload) {
+        const action = payload.action || 'chat';
+        const prompt = typeof payload.prompt === 'string' ? payload.prompt : '';
+        const sourceCount = payload.sources ? payload.sources.length : 0;
+        const sourceLine = sourceCount > 0 ? ` Dựa trên ${sourceCount} nguồn đã chọn.` : ' (Chưa có nguồn, trả lời chung).';
+        switch (action) {
+            case 'summary':
+                return `Tóm tắt nhanh: ${prompt || 'đang tạo tóm tắt'}${sourceLine}\n• 3-5 ý chính\n• Insight nổi bật\n• Việc cần làm tiếp theo`;
+            case 'mindmap':
+                return `Mindmap (dạng bullet):\n- Chủ đề chính\n  - Nhánh A\n    - Ý 1\n  - Nhánh B\n    - Ý 2${sourceLine}`;
+            case 'flashcards':
+                return `Flashcards (mock):\n1) Hỏi: Khái niệm chính là gì?\n   Đáp: Tóm tắt gọn.\n2) Hỏi: Điểm quan trọng?\n   Đáp: ...${sourceLine}`;
+            case 'report':
+                return `Báo cáo ngắn:\n- Mở đầu\n- 3 phát hiện chính\n- Rủi ro\n- Khuyến nghị${sourceLine}`;
+            case 'quiz':
+                return `Bài kiểm tra (mock):\n1. Câu hỏi?\nA. ... B. ... C. ... D. ...\n2. Câu hỏi?\n...${sourceLine}`;
+            default:
+                return `Đây là phản hồi mô phỏng từ API_AI_NOTEBOOK cho prompt: "${prompt.slice(0, 180)}"${sourceLine}`;
+        }
+    }
+
+    async function callNotebookApi(payload) {
+        try {
+            const response = await fetch(NOTEBOOK_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...NOTEBOOK_HEADERS },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                throw new Error('API_AI_NOTEBOOK chưa sẵn sàng');
+            }
+            const data = await response.json();
+            return {
+                content: data.content || data.result || '',
+                sources: data.sources || payload.sources || [],
+                mock: false
+            };
+        } catch (error) {
+            return {
+                content: generateNotebookMock(payload),
+                sources: payload.sources || [],
+                mock: true
+            };
+        }
+    }
+
+    async function sendNotebookPrompt() {
+        const input = document.getElementById('notebookPrompt');
+        if (!input) return;
+        const promptText = (input.value || '').trim();
+        if (!promptText) {
+            alert('Vui lòng nhập yêu cầu');
+            return;
+        }
+        const sources = selectedNotebookSources();
+        appendNotebookMessage('user', promptText, { sources });
+        input.value = '';
+        showLoadingOverlay(true, 'Đang gửi đến API_AI_NOTEBOOK...');
+        try {
+            const result = await callNotebookApi({
+                action: 'chat',
+                prompt: promptText,
+                sources
+            });
+            appendNotebookMessage('bot', result.content, { sources: result.sources, mock: result.mock });
+        } catch (error) {
+            appendNotebookMessage('bot', 'Không thể gọi API_AI_NOTEBOOK: ' + error.message, { sources, mock: true });
+        } finally {
+            showLoadingOverlay(false);
+        }
+    }
+
+    const studioPrompts = {
+        summary: 'Tóm tắt ngắn gọn (5 bullet) + insight chính + hành động kế tiếp.',
+        mindmap: 'Trả về dàn ý bullet dạng mindmap: chủ đề > nhánh > ý chi tiết.',
+        flashcards: 'Sinh 6 flashcards (Hỏi/Đáp) từ nội dung.',
+        report: 'Viết báo cáo 1 trang: Mở đầu, Phát hiện, Rủi ro, Khuyến nghị.',
+        quiz: 'Tạo 5 câu trắc nghiệm, mỗi câu 4 lựa chọn, đánh dấu đáp án đúng.'
+    };
+
+    async function triggerNotebookStudio(action) {
+        const sources = selectedNotebookSources();
+        if (sources.length === 0) {
+            alert('Chọn ít nhất một nguồn để chạy Studio');
+            return;
+        }
+        const prompt = studioPrompts[action] || 'Sinh nội dung dựa trên nguồn đã chọn.';
+        showLoadingOverlay(true, 'Đang xử lý Studio...');
+        try {
+            const result = await callNotebookApi({
+                action,
+                prompt,
+                sources
+            });
+            renderNotebookStudio(result.content, action, result.mock);
+            appendNotebookMessage('bot', `[Studio] ${action}: hoàn thành`, { sources, mock: result.mock });
+        } catch (error) {
+            renderNotebookStudio('Không thể gọi API_AI_NOTEBOOK: ' + error.message, action, true);
+        } finally {
+            showLoadingOverlay(false);
+        }
+    }
+
+    function renderNotebookStudio(content, action = 'Kết quả', isMock = false) {
+        const container = document.getElementById('notebookStudioResult');
+        const body = document.getElementById('notebookStudioBody');
+        const title = document.getElementById('studioResultTitle');
+        if (!container || !body || !title) return;
+        title.textContent = `Kết quả: ${action}`;
+        body.innerHTML = formatNotebookText(content || 'Chưa có nội dung');
+        container.classList.remove('hidden');
+        notebookStudioAction = action;
+        if (isMock) {
+            title.textContent += ' (mock)';
+        }
+    }
+
+    function clearNotebookStudio() {
+        const container = document.getElementById('notebookStudioResult');
+        const body = document.getElementById('notebookStudioBody');
+        if (container) container.classList.add('hidden');
+        if (body) body.innerHTML = '';
+        notebookStudioAction = null;
+    }
+
+    function clearNotebookUI() {
+        clearNotebookStudio();
+        notebookMessages = [];
+        renderNotebookMessages();
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         switchMode('classic');
         openHome();
@@ -554,5 +917,17 @@
         }
 
         setupGuidelineUploadArea('guidelineUploadArea', 'guidelineFileInput');
+
+        const notebookInput = document.getElementById('notebookFileInput');
+        if (notebookInput) {
+            notebookInput.addEventListener('change', handleNotebookFileChange);
+        }
+        const addSourceBtn = document.getElementById('notebookAddSourceBtn');
+        if (addSourceBtn && notebookInput) {
+            addSourceBtn.addEventListener('click', () => notebookInput.click());
+        }
+
+        renderNotebookSources();
+        renderNotebookMessages();
     });
 </script>
